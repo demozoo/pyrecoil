@@ -10,7 +10,7 @@ Installation
 
     pip install pyrecoil
 
-``pyrecoil`` is most usefull when installed in conjunction with `Pillow <http://pillow.readthedocs.org/>`_, the active fork of the Python Image Library::
+``pyrecoil`` is most useful when installed in conjunction with `Pillow <http://pillow.readthedocs.org/>`_, the active fork of the Python Image Library::
 
     pip install Pillow
 
