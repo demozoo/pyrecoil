@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+# skip "make clean" to avoid dependency on cito
+override_dh_auto_clean:
+
+override_dh_auto_install:
+	$(MAKE) PREFIX=$$(pwd)/debian/tmp/usr BUILDING_PACKAGE=1 install-thumbnailer

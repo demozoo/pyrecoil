@@ -1,0 +1,145 @@
+/*
+ * recoilwin.rc - RECOILWin GUI definition
+ *
+ * Copyright (C) 2009-2014  Piotr Fusik and Adrian Matoga
+ *
+ * This file is part of RECOIL (Retro Computer Image Library),
+ * see http://recoil.sourceforge.net
+ *
+ * RECOIL is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published
+ * by the Free Software Foundation; either version 2 of the License,
+ * or (at your option) any later version.
+ *
+ * RECOIL is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with RECOIL; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+#include <windows.h>
+
+#include "recoil.h"
+#include "recoilwin.h"
+
+IDI_APP ICON "recoil.ico"
+
+IDR_MENU MENU
+{
+	POPUP "&File"
+	{
+		MENUITEM "&Open...\tO", IDM_OPEN
+		MENUITEM SEPARATOR
+		MENUITEM "&Previous file in directory\tUp", IDM_PREVFILE, GRAYED
+		MENUITEM "&Next file in directory\tDown", IDM_NEXTFILE, GRAYED
+		MENUITEM "&First file in directory\tHome", IDM_FIRSTFILE, GRAYED
+		MENUITEM "L&ast file in directory\tEnd", IDM_LASTFILE, GRAYED
+		MENUITEM "Skip files on error", IDM_SKIPFILES, CHECKED
+		MENUITEM SEPARATOR
+		MENUITEM "&Save as...\tS", IDM_SAVEAS, GRAYED
+		MENUITEM SEPARATOR
+		MENUITEM "&Load Atari 8-bit palette...\tP", IDM_LOADPALETTE
+		MENUITEM "Use Atari 8-bit palette file", IDM_USEPALETTE, GRAYED
+		MENUITEM SEPARATOR
+		MENUITEM "&Exit\tEsc", IDM_EXIT
+	}
+	POPUP "&Edit"
+	{
+		MENUITEM "&Copy\tC", IDM_COPY, GRAYED
+	}
+	POPUP "&View"
+	{
+		MENUITEM "&Fullscreen\tEnter", IDM_FULLSCREEN, GRAYED
+		MENUITEM "&Zoom in\t+", IDM_ZOOMIN, GRAYED
+		MENUITEM "Zoom &out\t-", IDM_ZOOMOUT, GRAYED
+		MENUITEM SEPARATOR
+		MENUITEM "&Invert black and white\tI", IDM_INVERT, GRAYED
+		MENUITEM SEPARATOR
+		MENUITEM "Show file &path", IDM_SHOWPATH
+		MENUITEM "&Status bar", IDM_STATUSBAR, CHECKED
+	}
+	POPUP "&Help"
+	{
+		MENUITEM "&About...", IDM_ABOUT
+	}
+}
+
+IDR_ACCELERATORS ACCELERATORS
+{
+	"o", IDM_OPEN
+	"O", IDM_OPEN
+	"^o", IDM_OPEN
+	VK_UP, IDM_PREVFILE, VIRTKEY
+	VK_LEFT, IDM_PREVFILE, VIRTKEY
+	VK_PRIOR, IDM_PREVFILE, VIRTKEY
+	VK_DOWN, IDM_NEXTFILE, VIRTKEY
+	VK_RIGHT, IDM_NEXTFILE, VIRTKEY
+	VK_NEXT, IDM_NEXTFILE, VIRTKEY
+	VK_HOME, IDM_FIRSTFILE, VIRTKEY
+	VK_END, IDM_LASTFILE, VIRTKEY
+	"s", IDM_SAVEAS
+	"S", IDM_SAVEAS
+	"^s", IDM_SAVEAS
+	"p", IDM_LOADPALETTE
+	"P", IDM_LOADPALETTE
+	"^p", IDM_LOADPALETTE
+	VK_ESCAPE, IDM_EXIT, VIRTKEY
+	"c", IDM_COPY
+	"C", IDM_COPY
+	"^c", IDM_COPY
+	"\r", IDM_FULLSCREEN
+	VK_RETURN, IDM_FULLSCREEN, ALT, VIRTKEY
+	"f", IDM_FULLSCREEN
+	"F", IDM_FULLSCREEN
+	"+", IDM_ZOOMIN
+	"=", IDM_ZOOMIN
+	"-", IDM_ZOOMOUT
+	"i", IDM_INVERT
+	"I", IDM_INVERT
+}
+
+1 24
+{
+	"<?xml version=""1.0""?>"
+	"<assembly xmlns=""urn:schemas-microsoft-com:asm.v1"" manifestVersion=""1.0"">"
+	"<assemblyIdentity version=""" RECOIL_VERSION ".0"" "
+		"processorArchitecture=""X86"" name=""RECOILWin"" type=""win32"" />"
+	"<dependency><dependentAssembly>"
+	"<assemblyIdentity type=""win32"" name=""Microsoft.Windows.Common-Controls"" "
+		"version=""6.0.0.0"" processorArchitecture=""X86"" publicKeyToken=""6595b64144ccf1df"" language=""*"" />"
+	"</dependentAssembly></dependency>"
+	"</assembly>"
+}
+
+1 VERSIONINFO
+	FILEVERSION RECOIL_VERSION_MAJOR, RECOIL_VERSION_MINOR, RECOIL_VERSION_MICRO, 0
+	PRODUCTVERSION RECOIL_VERSION_MAJOR, RECOIL_VERSION_MINOR, RECOIL_VERSION_MICRO, 0
+	FILEFLAGSMASK 0x3fL
+	FILEFLAGS 0x0L
+	FILEOS 0x40004L
+	FILETYPE 1
+	FILESUBTYPE 0x0L
+{
+	BLOCK "StringFileInfo"
+	{
+		BLOCK "040904b0"
+		{
+			VALUE "CompanyName", "Piotr Fusik and Adrian Matoga\0"
+			VALUE "FileDescription", "RECOILWin\0"
+			VALUE "FileVersion", RECOIL_VERSION "\0"
+			VALUE "InternalName", "recoilwin\0"
+			VALUE "LegalCopyright", "Copyleft " RECOIL_YEARS "\0"
+			VALUE "OriginalFilename", "recoilwin.exe\0"
+			VALUE "ProductName", "RECOIL\0"
+			VALUE "ProductVersion", RECOIL_VERSION "\0"
+		}
+	}
+	BLOCK "VarFileInfo"
+	{
+		VALUE "Translation", 0x409, 1200
+	}
+}

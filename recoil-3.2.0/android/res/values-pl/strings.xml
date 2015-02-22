@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="app_name">RECOIL</string>
+	<string name="app_description">RECOIL jest przeglądarką obrazów w formatach komputerów: Amiga, Amstrad CPC, Apple II, Atari 8-bitowe, Atari Portfolio, Atari ST, Atari Falcon, BBC Micro, Commodore 16, Commodore 64, Macintosh 128K, MSX, Sam Coupé, ZX81 oraz ZX Spectrum. RECOIL otwiera ponad 200 formatów plików.</string>
+	<string name="view_in_recoil">Obejrzyj w RECOIL</string>
+	<string name="selector_title">RECOIL - %1$s</string>
+	<string name="viewing_title">RECOIL - %1$s</string>
+	<string name="access_denied">Brak dostępu</string>
+	<string name="error_listing_files">Błąd pobierania listy plików</string>
+	<string name="error_reading_file">Błąd odczytu pliku %1$s</string>
+	<string name="error_decoding_file">Błąd dekodowania pliku %1$s</string>
+	<string name="menu_search">Szukaj</string>
+	<string name="menu_info">Informacje o pliku</string>
+	<string name="menu_about">Informacja o RECOIL</string>
+	<string name="info_title">Informacje o pliku</string>
+	<string name="info_message">Komputer: %1$s\nRozdzielczość: %2$dx%3$d\nKolorów: %4$d</string>
+	<string name="about_title">RECOIL 3.2.0</string>
+	<string name="about_message">Retro Computer Image Library (C) 2009-2015 Piotr Fusik\nFormaty wyszukiwał, testował Mariusz Rozwadowski\nIkona RECOIL (C) 2014 Pawel Szewczyk\n\nTen program jest wolnym oprogramowaniem; możesz go rozpowszechniać i/lub modyfikować na warunkach Powszechnej Licencji Publicznej GNU opublikowanej przez Free Software Foundation, wersji 2 tej licencji lub (jak wolisz) dowolnej późniejszej.</string>
+</resources>

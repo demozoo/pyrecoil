@@ -1,0 +1,561 @@
+﻿RECOIL - Retro Computer Image Library
+=====================================
+
+// This file is in AsciiDoc format. It is the source for README.html.
+:Compact-Option:
+
+ifdef::recoilwww[]
+http://sourceforge.net/projects/recoil/files/recoil/3.2.0/[Download] |
+http://sourceforge.net/p/recoil/code[Browse source code (Git)] |
+http://sourceforge.net/projects/recoil/[SourceForge project page]
+endif::recoilwww[]
+
+RECOIL is a viewer of pictures in native formats of
+http://en.wikipedia.org/wiki/Amiga[Amiga],
+http://en.wikipedia.org/wiki/Amstrad_CPC[Amstrad CPC],
+http://en.wikipedia.org/wiki/Apple_II[Apple II],
+http://en.wikipedia.org/wiki/Atari_8-bit_family[Atari 8-bit],
+http://en.wikipedia.org/wiki/Atari_Portfolio[Atari Portfolio],
+http://en.wikipedia.org/wiki/Atari_ST[Atari ST],
+http://en.wikipedia.org/wiki/Atari_Falcon[Atari Falcon],
+http://en.wikipedia.org/wiki/BBC_Micro[BBC Micro],
+http://en.wikipedia.org/wiki/Commodore_16[Commodore 16],
+http://en.wikipedia.org/wiki/Commodore_64[Commodore 64],
+http://en.wikipedia.org/wiki/Macintosh_128K[Macintosh 128K],
+http://en.wikipedia.org/wiki/MSX[MSX],
+http://en.wikipedia.org/wiki/SAM_Coupé[SAM Coupé],
+http://en.wikipedia.org/wiki/ZX81[ZX81]
+and http://en.wikipedia.org/wiki/ZX_Spectrum[ZX Spectrum] computers.
+
+Currently the project includes:
+
+- recoil2png - portable command-line converter to PNG files
+- RECOILWin - viewer for Windows
+- thumbnail provider for Windows Explorer (install with a *.MSI installer)
+- Linux GNOME thumbnailer (install `recoil-2png` first, then `recoil-thumbnailer`)
+- plugin for OS X Quick Look (to install: open `recoil-3.2.0-osx.dmg`, drag `RECOIL.qlgenerator` to `QuickLook`, then re-log or run `qlmanage -r`)
+- plugin for http://www.xnview.com[XnView]
+- (de)coder for http://www.imagemagick.org/[ImageMagick]
+- plugin for http://www.nyam.pe.kr/[Imagine]
+- plugin for http://www.getpaint.net/[Paint.NET]
+- application for Android (also available in https://play.google.com/store/apps/details?id=net.sf.recoil[Google Play])
+- http://recoil.sourceforge.net/html5recoil.html[HTML 5 based viewer]
+
+RECOIL is also included in the "Formats" http://www.irfanview.com/[IrfanView] plugin.
+
+ifdef::recoilwww[]
+image::recoilwin.png["RECOILWin"]
+image::thumbrecoil.png["Thumbnails in Windows Explorer"]
+image::qlrecoil.png["OS X Quick Look"]
+image::nautilus.png["Thumbnails in Nautilus"]
+image::android.png["Android viewer"]
+endif::recoilwww[]
+
+Supported file formats
+----------------------
+
+Amiga
+~~~~~
+[horizontal]
+ACBM:: "Amiga Continuous Bitmap".
+HAM6:: "Hold-And-Modify 6", 4096 colors.
+HAM8:: "Hold-And-Modify 8", 16777216 colors.
+IFF, LBM:: "Interchange File Format" / "Interleaved Bitmap", compressed.
+INFO:: Icon, 8 colors.
+
+Amstrad CPC
+~~~~~~~~~~~
+[horizontal]
+FNT:: 8x8 font, mono.
+HGB:: "HinterGrundBild", 512x256, mono.
+SCR:: "Mode 2", 640x200, mono.
+
+Apple II
+~~~~~~~~
+[horizontal]
+DHR:: Double High Resolution, 560x192, mono.
+HGR:: High Resolution, 280x192, mono.
+SHR:: 320x200, 256 colors.
+
+Atari 8-bit
+~~~~~~~~~~~
+[horizontal]
+256, AP2:: 80x96, 256 colors.
+4MI:: "AtariTools-800" 4 mono missiles 2x240 each.
+4PL:: "AtariTools-800" 4 mono players 8x240 each.
+4PM:: "AtariTools-800" 4 mono players 8x240 each plus 4 mono missiles 2x240 each.
+A4R:: "Anime 4ever", 80x256, 16-level grayscale, compressed.
+ACS:: "AtariTools-800" 4x8 font, 4 colors.
+AGP:: "AtariTools-800" graphic.
+ALL:: "Graph", 160x192, 5 colors.
+AP3, APV, DGI, DGP, ILC:: "Digi Paint", 80x192, 256 colors, 2 frames.
+APC, PLM:: "Any Point, Any Color" / "Plama 256", 80x96, 256 colors.
+APL:: "Atari Player Editor", up to 16 16x48 frames, 4 colors.
+APP:: 80x192, 256 colors, 2 frames, compressed.
+ART:: "Ascii-Art Editor", up to 64x24 characters, mono.
+// I only see up to 40x21 in the editor, but the sample file SIANO.ART is bigger
+ART:: "Artist" by David Eaton, 160x80, 4 colors.
+BG9, G09:: 160x192, 16-level grayscale.
+BGP:: "Bugbiter APAC239i", 80x239, 256 colors, 2 frames.
+BKG:: "Movie Maker" background, 160x96, 4 colors.
+CCI:: "Champions' Interlace", 160x192, 2 frames, compressed.
+CHR:: "Blazing Paddles" font, mono.
+CIN:: "Champions' Interlace", 160x192 or 160x200, 2 frames.
+CPR:: "Trzmiel", 320x192, mono, compressed.
+DIN:: 320x192, 10 colors, 2 frames.
+DLM:: "Dir Logo Maker", 11x16 characters, mono.
+DRG:: "Atari CAD", 320x160, mono.
+ESC:: "EscalPaint", 80x192, 256 colors, 2 frames.
+FNT:: 8x8 font, mono.
+FWA:: "Fun with Art", 160x192, 128 colors.
+G10:: "Graphics 10", up to 80x240, 9 colors.
+G11:: "Graphics 11", up to 80x240, 16 colors.
+GHG:: "Gephard Hires Graphics", up to 320x200, mono.
+GR7:: "Graphics 7", up to 160x120, 4 colors.
+GR8:: "Graphics 8", up to 320x240, mono.
+GR9:: "Graphics 9", up to 80x240, 16-level grayscale.
+HIP:: "Hard Interlace Picture", 160x200, grayscale, 2 frames.
+HPM:: "Grass' Slideshow", 160x192, 4 colors, compressed.
+HR:: 256x239, 3 colors, 2 frames.
+HR2, HCI:: 320x200, 5 colors, 2 frames.
+ICE:: "Interlace Character Editor" font, 2 frames.
+ICN:: "ICE CIN", 160x192, 80 colors, 2 frames.
+IGE:: "Interlace Graphics Editor", 128x96, 16 colors, 2 frames.
+IMN:: "ICE MIN", 160x192, 80 colors, 2 frames.
+ING:: "ING 15", 160x200, 7 colors, 2 frames.
+INP:: 160x200, 7 colors, 2 frames.
+INT:: "INT95a", up to 160x239, 16 colors, 2 frames.
+IP2:: "ICE PCIN+", 160x192, 45 colors, 2 frames.
+IPC:: "ICE PCIN", 160x192, 35 colors, 2 frames.
+IR2:: "Super IRG 2", 160x192, 25 colors, 2 frames.
+IRG:: "Super IRG", 160x192, 15 colors, 2 frames.
+IST:: "Interlace Studio", 160x200, 2 frames.
+JGP:: "Jet Graphics Planner", 8x16 tiles, 4 colors.
+LEO:: "Larka Edytor Obiektów trybu $4+", 8x16 tiles, 5 colors.
+LUM:: "Technicolor Dream" luminance, 80x96, 16-level grayscale.
+MAX:: "XL-Paint MAX", 160x192, 2 frames, compressed.
+MBG:: "Mad Designer", 512x256, mono.
+MCH:: "Graph2Font", up to 176x240, 128 colors.
+MCP:: "McPainter", 160x200, 16 colors, 2 frames.
+MCPP:: "Paradox", 160x200, 8 colors.
+MCS:: 160x192, 9 colors.
+MGP:: "Magic Painter", 160x96, 4 colors with optional rainbow effect.
+MIC:: "Micro Illustrator" / "Graphics 15" , up to 160x240, 4 colors.
+MIC:: "AtariGraphics", 160x192, 4 colors.
+MIS:: "AtariTools-800" missile, 2x240, mono.
+NLQ:: "Daisy-Dot" 19x16 font, mono.
+PIC:: "Koala MicroIllustrator", 160x192, 4 colors, compressed.
+PLA:: "AtariTools-800" player, 8x240, mono.
+PMD:: "PMG Designer" by Henryk Karpowicz.
+PZM:: "Pryzm Artist", 80x192, 256 colors, 2 frames.
+RAW:: "XL-Paint MAX", 160x192, 16 colors, 2 frames.
+RGB:: "ColorViewSquash", up to 160x192, 3 frames.
+RIP:: "Rocky Interlace Picture", up to 320x239, 1 or 2 frames.
+RM0:: "Rambrandt", 160x96, 99 colors.
+// 99 = 4 colors + 95 DLI changes
+RM1:: "Rambrandt", 80x192, 256 colors.
+RM2:: "Rambrandt", 80x192, 104 colors.
+// 104 = 9 colors + 95 DLI changes
+RM3:: "Rambrandt", 80x192, 128 colors.
+RM4:: "Rambrandt", 160x192, 99 colors.
+RYS:: "Mamut", 160x96, 4 colors.
+SGE:: "Semi-Graphic logos Editor", 40x24 characters, mono.
+SHC:: "SAMAR Hi-res Interlace with Map of Colours", 320x192, 2 frames.
+SHP:: "Blazing Paddles" shape table, mono.
+SHP:: "Movie Maker" shapes, 160x96, 4 colors.
+SIF:: "Super-IRG" 4x8 font, 4 colors, 2 frames.
+SPC:: "The Graphics Magician Picture Painter", 160x192, 128 colors.
+SXS:: 16x16 font, mono.
+TIP:: "Taquart Interlace Picture", up to 160x119, 2 frames.
+VZI:: "VertiZontal Interlacing", 160x200, grayscale, 2 frames.
+WND:: "Blazing Paddles" window, up to 160x192, 4 colors.
+XLP:: "XL-Paint", 160x192 or 160x200, 7 colors, 2 frames, compressed.
+
+NOTE: Artist, AtariGraphics, Magic Painter and Rambrandt had no default extensions, so I made them up.
+Documentation for Rambrandt suggests RM0-RM4 for the compressed files, I also use them for the raw format.
+
+Atari Portfolio
+~~~~~~~~~~~~~~~
+[horizontal]
+PGC:: 240x64, mono, compressed.
+PGF:: 240x64, mono.
+
+Atari ST
+~~~~~~~~
+[horizontal]
+ART:: "Art Director", 320x200, 16 colors.
+BL1:: "DEGAS Elite" block, 16 colors.
+BL2:: "DEGAS Elite" block, 4 colors.
+BL3:: "DEGAS Elite" block, mono.
+BRU:: "DEGAS Elite" brush, 8x8, mono.
+CA1:: "CrackArt", 320x200, 16 colors, compressed.
+CA2:: "CrackArt", 640x200, 4 colors, compressed.
+CA3:: "CrackArt", 640x400, mono, compressed.
+CPT:: "Canvas", compressed.
+DOO:: "Doodle", 640x400, mono.
+DU1, DUO:: 416x273, 136 colors, 2 frames.
+DU2:: 832x273, 10 colors, 2 frames.
+GFB:: "DeskPic".
+ICN:: "DEGAS Elite" icon, mono.
+IFF:: "Interchange File Format", compressed.
+IMG:: "GEM Bit Image", compressed.
+MPP:: "Multi Palette Picture", up to 416x273, 1 or 2 frames.
+NEO:: "NEOchrome".
+PAC:: "STAD", 640x400, mono, compressed.
+PC1:: "DEGAS Elite", 320x200, 16 colors, compressed.
+PC2:: "DEGAS Elite", 640x200, 4 colors, compressed.
+PC3:: "DEGAS Elite", 640x400, mono, compressed.
+PCS:: "PhotoChrome", 320x199, 1 or 2 frames, compressed.
+PI1:: "DEGAS", up to 416x560, 16 colors.
+PI2:: "DEGAS", 640x200, 4 colors.
+PI3:: "DEGAS", 640x400, mono.
+PL4:: 320x200, 256 colors, 2 frames, compressed.
+SPC:: "Spectrum 512", 320x199, 512 colors, compressed.
+SPS:: "Spectrum 512 (Smooshed)" , 320x199, 512 colors, compressed.
+SPU:: "Spectrum 512", 320x199, 512 colors.
+TN1:: "Tiny Stuff", 320x200, 16 colors, compressed.
+TN2:: "Tiny Stuff", 640x200, 4 colors, compressed.
+TN3:: "Tiny Stuff", 640x400, mono, compressed.
+TNY:: "Tiny Stuff", compressed.
+XIMG:: "Extended GEM Bit Image", compressed.
+
+Atari Falcon
+~~~~~~~~~~~~
+[horizontal]
+DC1, DGC:: "DuneGraph", 320x200, 256 colors, compressed.
+DEL:: "DelmPaint", 320x240, 256 colors, compressed.
+DGU, DG1:: "DuneGraph", 320x200, 256 colors.
+DPH:: "DelmPaint", 640x480, 256 colors, compressed.
+FTC:: "Falcon True Color", 384x240, 65536 colors.
+GOD:: "GodPaint", 65536 colors.
+PI4, PI9:: "Fuckpaint", 320x240 or 320x200, 256 colors.
+TRP:: "EggPaint", 65536 colors.
+TRU:: "IndyPaint", 65536 colors.
+
+BBC Micro
+~~~~~~~~~
+[horizontal]
+BB0:: "Mode 0", 640x256, mono.
+BB1:: "Mode 1", 320x256, 4 colors.
+BB2:: "Mode 2", 160x256, 8 colors.
+BB4:: "Mode 4", 320x256, mono.
+BB5:: "Mode 5", 160x256, 4 colors.
+BBG:: "LdPic", compressed.
+
+Commodore 16
+~~~~~~~~~~~~
+[horizontal]
+P4I:: up to 320x200, 121 colors.
+
+Commodore 64
+~~~~~~~~~~~~
+[horizontal]
+4BT:: "GoDot", 320x200, 16 colors.
+64C:: 8x8 font, mono.
+A64, WIG:: "Wigmore Artist 64", 160x200, 16 colors.
+AAS:: "Art Studio", 320x200, 16 colors.
+AFL:: "AFLI-editor v2.0" by Topaz Beerlin, 296x200, 16 colors.
+AMI:: "Amica Paint", 160x200, 16 colors, compressed.
+ART:: "Art Studio", 320x200, 16 colors.
+BFLI:: "Big FLI", 148x400, 16 colors.
+BML:: "FLI Graph 2.2" by Blackmail, 148x200, 16 colors.
+CDU:: "CDU-Paint", 160x200, 16 colors.
+CHE:: "Cheese", 160x200, 16 colors.
+CWG:: "Create with Garfield", 160x200, 16 colors.
+DD:: "Doodle", 320x200, 16 colors.
+DLP:: "Drazlace", up to 320x200, 2 frames, compressed.
+DOL:: "Dolphin Ed", 160x200, 16 colors.
+DRL:: "Drazlace", up to 320x200, 2 frames.
+DRP:: "Drazpaint", 160x200, 16 colors, compressed.
+DRZ:: "Drazpaint", 160x200, 16 colors.
+ECI:: "ECI Graphic Editor", 296x200, 2 frames.
+ECP:: "ECI Graphic Editor", 296x200, 2 frames, compressed.
+FD2:: "FLI Designer", 148x200, 16 colors.
+FFLI:: 148x200, 2 frames.
+FGS:: "Fun Graphics Machine", 320x200, mono.
+FLI:: "Flexible Line Interpratation", 148x200, 16 colors.
+FPT:: "Face Painter", 160x200, 16 colors.
+FUN, FP2:: "Funpaint", 296x200, 2 frames, compressed.
+GCD:: "Gigacad", 320x200, mono.
+GG:: "Koala Painter", 160x200, 16 colors, compressed.
+GIG:: "Gigapaint", 160x200, 16 colors.
+GIH:: "Gigapaint", 320x200, mono.
+GUN, IFL:: "Gunpaint", 296x200, 2 frames.
+HBM, HIR:: Hires-Bitmap, 320x200, mono.
+HED:: "Hi-Eddi", 320x200, 16 colors.
+HFC:: "Hires FLI" by Crest, 296x112, 16 colors.
+HIM:: "Hires Manager" by Cosmos, 296x192, 16 colors, compressed.
+HLF:: "Hires Interlace" by Feniks, 320x200, 2 frames.
+HPC:: "Hi-Pic Creator", 320x200, 16 colors.
+IHE:: "Interlace Hires Editor", 320x200, 3 colors, 2 frames.
+IPH:: "Interpaint", 320x200, 16 colors.
+IPT:: "Interpaint", 160x200, 16 colors.
+ISM:: "Image System", 160x200, 16 colors.
+JJ:: "Doodle", 320x200, 16 colors, compressed.
+KOA:: "Koala Painter", 160x200, 16 colors.
+LP3:: "Logo Painter 3/3+", 160x400, 4 colors.
+MCI:: "Truepaint", 320x200, 2 frames.
+MIL:: "Micro Illustrator", 160x200, 16 colors.
+MLE:: "Multi-Lace Editor", 320x56, 10 colors, 2 frames.
+MON:: "Mono Magic", 320x200, mono.
+OCP:: "Advanced Art Studio", 160x200, 16 colors.
+P64:: "Picasso 64", 160x200, 16 colors.
+PI:: "Blazing Paddles", 160x200, 16 colors.
+PMG:: "Paint Magic", 160x200, 16 colors.
+RP:: "Rainbow Painter", 160x200, 16 colors.
+RPM:: "Run Paint", 160x200, 16 colors.
+SAR:: "Saracen Paint", 160x200, 16 colors.
+VIC:: Generic C64, up to 320x200, 16 colors.
+VID:: "Vidcom 64", 160x200, 16 colors.
+
+Macintosh 128K
+~~~~~~~~~~~~~~
+[horizontal]
+MAC:: "MacPaint", 576x720, mono, compressed.
+
+MSX
+~~~
+[horizontal]
+SC2, GRP:: "Screen 2", 256x192, 15 colors.
+SC8:: "Screen 8", 256x212, 256 colors.
+SCA:: "Screen 10", 256x212, 12515 colors.
+SCC, SRS:: "Screen 12", 256x212, 19268 colors.
+SR8:: "Graph Saurus", 256x212, 256 colors, compressed.
+
+PC
+~~
+[horizontal]
+EPA:: "Award BIOS logo".
+MSP:: "Microsoft Paint version 1 or 2", mono.
+
+SAM Coupé
+~~~~~~~~~
+[horizontal]
+SCS4:: "Mode 4", 256x192, 16 colors.
+
+ZX81
+~~~~
+[horizontal]
+P:: "Sinclair BASIC", 32x24 characters, mono.
+
+ZX Spectrum
+~~~~~~~~~~~
+[horizontal]
+3:: 256x192, 8 colors, 3 frames.
+ATR:: Attributes, 256x192, 15 colors.
+CH4:: 4x8 font, mono.
+CH6:: 6x8 font, mono.
+CH8:: 8x8 font, mono.
+HLR:: Attributes Gigascreen, 256x192, 2 frames.
+IFL:: Multicolor 8x2, 256x192, 15 colors.
+IMG:: GigaScreen, 256x192, 2 frames.
+MC:: Multicolor 8x1, 256x192, 15 colors.
+MG1:: "MultiArtist", 256x192, 2 frames.
+MG2:: "MultiArtist", 256x192, 2 frames.
+MG4:: "MultiArtist", 256x192, 2 frames.
+MG8:: "MultiArtist", 256x192, 2 frames.
+RGB:: 256x192, 8 colors, 3 frames.
+SCR:: 256x192, 15 colors.
+ZXP:: "ZX-Paintbrush", 256x192, 15 colors.
+
+"2 frames" above means the picture is composed of two quickly alternating frames so that
+a human perceives more colors (for example black alternated with gray looks like dark gray).
+On Atari 8-bit and Commodore 64 this technique is commonly (but incorrectly)
+referred to as "interlace". On ZX Spectrum it is called "gigascreen".
+Likewise, "3 frames" means three different alternating pictures and more flickering.
+
+You can find some sample files in http://recoil.sourceforge.net/examples.zip[examples.zip].
+
+ifdef::recoilsrc[]
+include::INSTALL[]
+endif::recoilsrc[]
+
+ifdef::recoilwin[]
+include::win32/USAGE[]
+endif::recoilwin[]
+
+Feedback
+--------
+
+If you are interested in the RECOIL project, please subscribe its
+https://lists.sourceforge.net/lists/listinfo/recoil-users[mailing list].
+This list is for users and developers.
+Once you subscribe, you can post comments, ideas and questions about RECOIL.
+
+You may submit bugs http://sourceforge.net/p/recoil/bugs/[here] (log in required).
+
+History
+-------
+
+RECOIL 3.2.0 (2015-01-28)::
+
+New formats;;
+- Amiga: INFO
+- Amstrad CPC: SCR, HGB, FNT
+- Apple II: HGR, DHR, SHR
+- Atari 8-bit: RYS, HCI, MCPP
+- Atari ST/STE: DUO/DU1, DU2, PL4
+- BBC Micro: BB0, BB1, BB2, BB4, BB5, BBG
+- Commodore 16: P4I
+- Commodore 64: A64/WIG
+- MSX: SCA, SCC, SRS
+- PC: EPA, MSP
+- ZX81: P
+
+RECOIL 3.1.0 (2014-06-25)::
+
+New formats;;
+- Commodore 64: GoDot (\*.4BT), \*.VIC, FLI Designer (\*.FD2), Multi-Lace Editor (*.MLE)
+- ZX Spectrum: *.3
+- Macintosh 128K: MacPaint (*.MAC)
+- MSX: \*.SC2, \*.GRP, \*.SC8, Graph Saurus (*.SR8)
+- SAM Coupe: *.SCS4
+
+New ports;;
+- OS X Quick Look plugin.
+- GNOME 3 thumbnailer.
+- Linux *.DEB and *.RPM binary packages.
+
+Android changes;;
+- Search filenames using on-screen keyboard.
+- Added file information and About boxes.
+- Don't reset the gallery on orientation change.
+
+Other changes;;
+- Disable per-line background color in the Funpaint (FUN) format.
+- Reset RECOILWin zoom after a large image is open.
+
+RECOIL 3.0.0 (2014-02-26)::
+
+RECOIL is a continuation of the First Atari Image Library (FAIL) project.
+In addition to the Atari 8-bit/Portfolio/ST/Falcon formats, RECOIL decodes
+Amiga, Commodore 64 and ZX Spectrum files.
++
+Other changes from FAIL 2.0.2:
+
+- New ports: Android, Paint.NET plugin.
+- New Atari 8-bit formats: BGP, DGI, LEO, LUM, SIF.
+- The default Atari 8-bit palette is now Altirra's PAL.
+- The XnView plugin is now a single file and requires XnView 2.11 or newer.
+
+FAIL 2.0.2 (2013-09-15)::
+
+New formats: Interlace Character Editor font (ICE), GEM Bit Image (IMG),
+Multi Palette Picture (MPP).
++
+This is the last release of FAIL. But don't worry! We are just renaming our project
+to Retro Computer Image Library (RECOIL), because we are going to support formats
+from 8-bit and 16-bit machines other than Atari. Stay tuned!
+
+FAIL 2.0.1 (2013-04-24)::
+
+Added Atari 8-bit formats: IP2, IMN, ICN, DIN, IRG, IR2, VZI.
+Added "DEGAS Elite" icon (ICN). Fixed decoding of IPC.
+Thumbnail provider implemented for Windows 2000/XP.
+Fullscreen mode in HTML 5.
+
+FAIL 2.0.0 (2013-02-15)::
+
+Library rewritten from C to the http://cito.sourceforge.net/[Ć programming language].
+This made it possible to create the HTML 5 port.
+The rewrite included code clean-up and bug fixes in decoding of
+RIP, TIP, SGE, HR2, AGP, AP3/APV/DGP/ESC/ILC/PZM, APP, CIN, CCI.
+Added new formats: ICE PCIN (IPC), Daisy-Dot font (NLQ), PMG Designer (PMD),
+AtariTools-800 font (ACS), PhotoChrome (PCS), HPM, MCS, Anime 4ever (A4R),
+DuneGraph compressed (DGC, DC1), Canvas compressed (CPT), Interchange File Format (IFF),
+DEGAS Elite block (BL1, BL2, BL3), DEGAS Elite brush (BRU).
+Added auto-detection of Atari STE 4096-color palette.
+FAILWin and XnView show the computer family of the file format.
+FAILWin shows the number of alternating frames.
+The win64 package is now sufficient on 64-bit Windows, there's no need to install the win32 package.
+Reduced CPU and memory usage in fail2png.
+
+FAIL 1.4.0 (2012-11-28)::
+
+Added Atari Falcon formats: Fuckpaint (PI4, PI9), DuneGraph (DGU, DG1),
+EggPaint (TRP), IndyPaint (TRU), GodPaint (GOD), Falcon True Color (FTC),
+DelmPaint (DEL, DPH).
+Added Atari ST formats: Spectrum 512 Smooshed (SPS), DeskPic (GFB),
+416x560 DEGAS (PI1).
+Created plugin for Imagine (might be interesting for Total Commander users,
+as Imagine includes a Total Commander plugin).
+Reduced CPU and memory usage in Windows thumbnail provider, ImageMagick
+and XnView.
+
+FAIL 1.3.0 (2012-07-23)::
+
+Added Atari ST formats: DEGAS (PI1, PI2, PI3), DEGAS Elite (PC1, PC2, PC3),
+NEOchrome (NEO), Spectrum 512 (SPU, SPC), Tiny Stuff (TNY, TN1, TN2, TN3),
+STAD (PAC), CrackArt (CA1, CA2, CA3), Doodle (DOO), Art Director (ART).
+Added Atari Portfolio formats (PGF, PGC).
+More Atari 8-bit formats: Atari Player Editor (APL), Artist (ART),
+Ascii-Art Editor (ART), Atari CAD (DRG),
+AtariTools-800 (AGP, PLA, MIS, 4PL, 4MI, 4PM), ING 15 (ING),
+Lepix dialect of CIN, raw images (GR7, G10, G11).
+Fixed non-interlaced RIP modes.
+FAILWin extended with "First/Last file in directory", "Skip files on error".
+Narrow pictures were cropped in FAILWin.
+
+FAIL 1.2.0 (2011-12-16)::
+
+Added decoding of ColorViewSquash (RGB), Blazing Paddles (CHR, SHP, WND),
+Magic Painter (MGP), Mad Designer (MBG), AtariGraphics (MIC),
+Fun with Art (FWA), Rambrandt (RM0, RM1, RM2, RM3, RM4), XL-Paint (XLP),
+XL-Paint MAX (MAX), SHIMC (SHC), Graph (ALL), APP View (APP),
+Semi-Graphic logos Editor (SGE), Dir Logo Maker (DLM), Movie Maker (BKG, SHP),
+BG9, G09, The Graphics Magician Picture Painter (SPC).
+Improved decoding of all RAW and MIC, some RIP and FNT files.
+Added APV extension for the AP3 format.
+Created GNOME thumbnailer (for Linux file browser Nautilus).
+You may drag&drop files to the FAILWin window.
+GR8 wasn't registered in ImageMagick.
+
+FAIL 1.1.0 (2011-04-18)::
+
+Fixed decoding of ILC, AP3, RIP, PIC, CPR, HIP and CIN.
+Added support for MCH, IGE, 256, AP2, JGP, DGP, ESC, PZM, IST and RAW.
+Created Windows thumbnail provider.
+Fixed user interface issues in FAILWin.
+Fixed compilation errors with the new libpng.
+Updated installation for new ImageMagick.
+Moved source code from SVN to Git.
+
+FAIL 1.0.1 (2010-08-25)::
+
+Windows setup has been created. A coder for ImageMagick has been created.
+MCP, GHG and HR2 formats are supported. Build process has been improved.
+
+FAIL 1.0.0 (2009-08-25)::
+
+Initial release.
+
+Authors
+-------
+
+Piotr Fusik {recoilwww!<fox@scene.pl>}::
+Idea, programming.
+
+Mariusz Rozwadowski {recoilwww!<ramosc64@o2.pl>}::
+Formats research, testing.
+
+Adrian Matoga {recoilwww!<epi@atari8.info>}::
+Programming.
+
+Petri Pyy {recoilwww!<laskipeto@gmail.com>}::
+OS X Quick Look plugin.
+
+Paweł Szewczyk {recoilwww!<ripek77@gmail.com>}::
+Icons, testing.
+
+Peter Dell {recoilwww!<jac@wudsn.com>}::
+Testing.
+
+Sławomir Śledź {recoilwww!<slaves@scene.pl>}::
+Testing.
+
+Monika Wesołowska {recoilwww!<giulio.caesar@gmail.com>}::
+Testing.
+
+ifdef::recoilwww[]
+image::http://sflogo.sourceforge.net/sflogo.php?group_id=258474&amp;type=13["Get RECOIL at SourceForge.net. Fast, secure and Free Open Source software downloads",width=120,height=30,link="http://sourceforge.net/projects/recoil/"]
+endif::recoilwww[]

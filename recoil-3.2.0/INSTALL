@@ -1,0 +1,160 @@
+﻿// This file is in AsciiDoc format. It is converted to README.html.
+
+Compilation instructions
+------------------------
+
+
+Required tools
+~~~~~~~~~~~~~~
+
+RECOIL is written in the Ć programming language.
+Official releases include translation of RECOIL to C,
+so you only need a C compiler and Make utility.
+For other cases (Git, Paint.NET, HTML 5 or Android)
+you'll need http://cito.sourceforge.net[cito].
+
+
+Required libraries
+~~~~~~~~~~~~~~~~~~
+
+For Linux and Windows builds you will need development files for libpng >=1.2.5
+and zlib >=1.2.3.
+In some systems they are installed by default or included in software
+repositories.
+For other systems, including Windows, you will need to build
+and install these libraries from sources. See
+http://www.libpng.org/pub/png/libpng.html[libpng website] for downloads
+and build instructions.
+
+
+Getting officially released source code
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to compile an official release of RECOIL, download source distribution
+(`recoil-*.tar.gz`) and uncompress it to a directory of your choice.
+
+On Unix-like systems:
+--------------------------------------------------------------------------------
+tar zxf recoil-*.tar.gz
+--------------------------------------------------------------------------------
+
+On Windows you may use http://7-zip.org[7-Zip].
+
+
+Getting latest source code
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Alternatively you may get the latest version from the Git repository.
+To do this using a command-line Git client:
+--------------------------------------------------------------------------------
+git clone git://git.code.sf.net/p/recoil/code recoil-code
+--------------------------------------------------------------------------------
+
+This will fetch the latest code to a new directory called `recoil-code`.
+
+
+Building recoil2png, GNOME thumbnailer and ImageMagick coder on Unix-like systems
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+From your shell prompt navigate to the directory which contains `recoil.ci`.
+
+Review the contents of `Makefile` and run:
+--------------------------------------------------------------------------------
+make
+--------------------------------------------------------------------------------
+
+To install recoil2png under `PREFIX`, run:
+--------------------------------------------------------------------------------
+make install-recoil2png
+--------------------------------------------------------------------------------
+
+To install GNOME 3 thumbnailer and recoil2png, run:
+--------------------------------------------------------------------------------
+make install-thumbnailer
+--------------------------------------------------------------------------------
+
+Or, if you are still on GNOME 2:
+--------------------------------------------------------------------------------
+make install-gnome2-thumbnailer
+--------------------------------------------------------------------------------
+
+After you restart your system, Nautilus windows should display thumbnails
+of retro computer images.
+
+Installation of the ImageMagick coder requires that you have complete source
+distribution of ImageMagick. Current version of the ImageMagick coder has been
+tested with version 6.7.4-0 of ImageMagick.
+
+Run +make+ specifying path to the sources:
+--------------------------------------------------------------------------------
+make install-magick MAGICK_INCLUDE_PATH=/path/to/im/sources
+--------------------------------------------------------------------------------
+
+To verify the installation, try to open some
+http://recoil.sourceforge.net/examples.zip[example files]:
+--------------------------------------------------------------------------------
+display COYOTE.RIP
+--------------------------------------------------------------------------------
+
+You can also install all components at the same time, for example:
+--------------------------------------------------------------------------------
+make install PREFIX=/opt/recoil MAGICK_INCLUDE_PATH=/src/ImageMagick-6.7.4-0
+--------------------------------------------------------------------------------
+
+
+Using recoil2png
+~~~~~~~~~~~~~~~~
+
+Run the program from command line to see the syntax.
+Unless you specify the `-o`/`--output` option, the output filename will be
+constructed from the input filename with the extension changed to `png`.
+
+
+Building recoil2png, XnView/ImageMagick/Imagine/Windows Explorer plugins and RECOILWin on Windows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Download http://www.mingw.org/[MinGW] and install binutils, core compiler,
+w32api and MinGW Make.
+
+From the command prompt navigate to the `win32` directory and run:
+--------------------------------------------------------------------------------
+mingw32-make
+--------------------------------------------------------------------------------
+
+
+Building Paint.NET plugin on Windows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install .NET Framework 3.5, Paint.NET and MinGW Make.
+
+Make sure http://cito.sourceforge.net[cito] is on your PATH.
+
+From the command prompt navigate to the `win32` directory and run:
+--------------------------------------------------------------------------------
+mingw32-make RecoilPaintDotNet.dll
+--------------------------------------------------------------------------------
+
+
+Building HTML 5 based viewer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Make sure http://cito.sourceforge.net[cito] is on your PATH.
+
+From the command prompt navigate to the `html5` directory and run:
+--------------------------------------------------------------------------------
+make
+--------------------------------------------------------------------------------
+
+
+Building Android application
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install http://developer.android.com/sdk/[Android SDK] with an Android platform.
+Edit the paths at the top of `android/Makefile` so that they point to your installed SDK.
+
+Make sure http://cito.sourceforge.net[cito] is on your PATH.
+
+From the command prompt navigate to the `android` directory and run:
+--------------------------------------------------------------------------------
+make
+--------------------------------------------------------------------------------

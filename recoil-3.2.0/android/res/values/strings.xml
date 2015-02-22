@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="app_name">RECOIL</string>
+	<string name="app_description">RECOIL is a viewer of pictures in native formats of Amiga, Amstrad CPC, Apple II, Atari 8-bit, Atari Portfolio, Atari ST, Atari Falcon, BBC Micro, Commodore 16, Commodore 64, Macintosh 128K, MSX, Sam Coupé, ZX81 and ZX Spectrum computers. RECOIL supports over 200 file formats.</string>
+	<string name="view_in_recoil">View in RECOIL</string>
+	<string name="selector_title">RECOIL - %1$s</string>
+	<string name="viewing_title">RECOIL - %1$s</string>
+	<string name="access_denied">Access denied</string>
+	<string name="error_listing_files">Error listing files</string>
+	<string name="error_reading_file">Error reading file %1$s</string>
+	<string name="error_decoding_file">Error decoding file %1$s</string>
+	<string name="menu_search">Search</string>
+	<string name="menu_info">File information</string>
+	<string name="menu_about">About</string>
+	<string name="info_title">File information</string>
+	<string name="info_message">Platform: %1$s\nResolution: %2$dx%3$d\nColors: %4$d</string>
+	<string name="about_title">About RECOIL 3.2.0</string>
+	<string name="about_message">Retro Computer Image Library (C) 2009-2015 Piotr Fusik\nFormats research, testing by Mariusz Rozwadowski\nRECOIL icon (C) 2014 Pawel Szewczyk\n\nThis program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.</string>
+</resources>
