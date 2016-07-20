@@ -1,0 +1,213 @@
+﻿<div>
+	<release project="RECOIL" version="3.4.0" date="2016-02-02">
+		<ul>
+			<li>Decoding the exact width of several formats, no more right-padding.</li>
+			<li>Fixed crashes on invalid files.</li>
+			<li>Faster calculation of unique colors.</li>
+			<li>Honoring the aspect ratio of IFF and IMG.</li>
+			<li>Fixed decoding of some Spectrum 512 SPC.</li>
+			<li>Fixed downscaling artifacts in RECOILWin.</li>
+		</ul>
+		<ul title="IFF improvements">
+			<li>Added decoding of multi-palette.</li>
+			<li>Added decoding of RGB8 and RGBN.</li>
+			<li>Ignoring the compression field of ACBM.</li>
+			<li>Improved EHB and HAM detection.</li>
+			<li>Improved contrast for 12-bit CMAP.</li>
+		</ul>
+		<ul title="New formats">
+			<li>Apple IIGS: SH3.</li>
+			<li>Atari 8-bit: Envision (MAP), EnvisionPC (MAP), KFX, Texture Editor (TXE), Interlace Logo Designer (ILD).</li>
+			<li>Atari ST: NEOchrome Master (NEO, NEO+RST).</li>
+			<li>Atari Falcon: XGA, Prism Paint (PNT, TPI).</li>
+			<li>Commodore 128: VBM.</li>
+		</ul>
+		<ul title="Android changes">
+			<li>Favorite files and folders and a shortcut to the downloads.</li>
+			<li>Additional "back" on the action bar.</li>
+			<li>Compatibility with old Androids.</li>
+			<li>Full-screen error messages.</li>
+		</ul>
+	</release>
+
+	<release project="RECOIL" version="3.3.0" date="2015-08-07">
+		<ul>
+			<li>Added support for multi-file pictures (extensions listed below with a plus sign).</li>
+			<li>Added more variants of ICE and MAC formats.</li>
+			<li>The LUM format contains 119 lines and not only 96.</li>
+			<li>Fixed crash saving a PNG on Windows.</li>
+			<li>Fixed Atari ST/STE formats unavailable on OS X.</li>
+			<li>On Android, files are now sorted case-insensitively.</li>
+		</ul>
+		<ul title="New formats">
+			<li>Amstrad CPC: SCR+PAL, WIN+PAL.</li>
+			<li>Apple II: SPR.</li>
+			<li>Atari 8-bit: CPI, CUT, KPR, LDM, LUM+COL, RAP, TXS.</li>
+			<li>Commodore 64: KLA.</li>
+			<li>MSX: SC5/GE5, SC7/GE7, SR5+PL5, SR7+PL7, YJK.</li>
+			<li>Oric: CHS, HIR/HRS.</li>
+			<li>Timex 2048: MLT.</li>
+			<li>TRS-80: HR.</li>
+			<li>TRS-80 Color Computer: CLP, GRF/MAX/P41/PIX, P11.</li>
+		</ul>
+	</release>
+
+	<release project="RECOIL" version="3.2.0" date="2015-01-28">
+		<ul title="New formats">
+			<li>Amiga: INFO</li>
+			<li>Amstrad CPC: SCR, HGB, FNT</li>
+			<li>Apple II: HGR, DHR, SHR</li>
+			<li>Atari 8-bit: RYS, HCI, MCPP</li>
+			<li>Atari ST/STE: DUO/DU1, DU2, PL4</li>
+			<li>BBC Micro: BB0, BB1, BB2, BB4, BB5, BBG</li>
+			<li>Commodore 16: P4I</li>
+			<li>Commodore 64: A64/WIG</li>
+			<li>MSX: SCA, SCC, SRS</li>
+			<li>PC: EPA, MSP</li>
+			<li>ZX81: P</li>
+		</ul>
+	</release>
+
+	<release project="RECOIL" version="3.1.0" date="2014-06-25">
+		<ul title="New formats">
+			<li>Commodore 64: GoDot (4BT), VIC, FLI Designer (FD2), Multi-Lace Editor (MLE)</li>
+			<li>ZX Spectrum: 3</li>
+			<li>Macintosh 128K: MacPaint (MAC)</li>
+			<li>MSX: SC2, GRP, SC8, Graph Saurus (SR8)</li>
+			<li>SAM Coupe: SCS4</li>
+		</ul>
+		<ul title="New ports">
+			<li>OS X Quick Look plugin.</li>
+			<li>GNOME 3 thumbnailer.</li>
+			<li>Linux DEB and RPM binary packages.</li>
+		</ul>
+		<ul title="Android changes">
+			<li>Search filenames using on-screen keyboard.</li>
+			<li>Added file information and About boxes.</li>
+			<li>Don't reset the gallery on orientation change.</li>
+		</ul>
+		<ul title="Other changes">
+			<li>Disable per-line background color in the Funpaint (FUN) format.</li>
+			<li>Reset RECOILWin zoom after a large image is open.</li>
+		</ul>
+	</release>
+
+	<release project="RECOIL" version="3.0.0" date="2014-02-26">
+		<p>RECOIL is a continuation of the First Atari Image Library (FAIL) project.
+		In addition to the Atari 8-bit/Portfolio/ST/Falcon formats, RECOIL decodes
+		Amiga, Commodore 64 and ZX Spectrum files.</p>
+		<ul title="Other changes from FAIL 2.0.2">
+			<li>New ports: Android, Paint.NET plugin.</li>
+			<li>New Atari 8-bit formats: BGP, DGI, LEO, LUM, SIF.</li>
+			<li>The default Atari 8-bit palette is now Altirra's PAL.</li>
+			<li>The XnView plugin is now a single file and requires XnView 2.11 or newer.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="2.0.2" date="2013-09-15">
+		<p>New formats: Interlace Character Editor font (ICE), GEM Bit Image (IMG),
+		Multi Palette Picture (MPP).</p>
+		<p>This is the last release of FAIL. But don't worry! We are just renaming our project
+		to Retro Computer Image Library (RECOIL), because we are going to support formats
+		from 8-bit and 16-bit machines other than Atari. Stay tuned!</p>
+	</release>
+
+	<release project="FAIL" version="2.0.1" date="2013-04-24">
+		<ul>
+			<li>Added Atari 8-bit formats: IP2, IMN, ICN, DIN, IRG, IR2, VZI.</li>
+			<li>Added "DEGAS Elite" icon (ICN).</li>
+			<li>Fixed decoding of IPC.</li>
+			<li>Thumbnail provider implemented for Windows 2000/XP.</li>
+			<li>Fullscreen mode in HTML 5.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="2.0.0" date="2013-02-15">
+		<ul>
+			<li>Library rewritten from C to the <a href="http://cito.sourceforge.net/">Ć programming language</a>.
+			This made it possible to create the HTML 5 port.</li>
+			<li>The rewrite included code clean-up and bug fixes in decoding of
+			RIP, TIP, SGE, HR2, AGP, AP3/APV/DGP/ESC/ILC/PZM, APP, CIN, CCI.</li>
+			<li>Added new formats: ICE PCIN (IPC), Daisy-Dot font (NLQ), PMG Designer (PMD),
+			AtariTools-800 font (ACS), PhotoChrome (PCS), HPM, MCS, Anime 4ever (A4R),
+			DuneGraph compressed (DGC, DC1), Canvas compressed (CPT), Interchange File Format (IFF),
+			DEGAS Elite block (BL1, BL2, BL3), DEGAS Elite brush (BRU).</li>
+			<li>Added auto-detection of Atari STE 4096-color palette.</li>
+			<li>FAILWin and XnView show the computer family of the file format.</li>
+			<li>FAILWin shows the number of alternating frames.</li>
+			<li>The win64 package is now sufficient on 64-bit Windows, there's no need to install the win32 package.</li>
+			<li>Reduced CPU and memory usage in fail2png.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="1.4.0" date="2012-11-28">
+		<ul>
+			<li>Added Atari Falcon formats: Fuckpaint (PI4, PI9), DuneGraph (DGU, DG1),
+			EggPaint (TRP), IndyPaint (TRU), GodPaint (GOD), Falcon True Color (FTC),
+			DelmPaint (DEL, DPH).</li>
+			<li>Added Atari ST formats: Spectrum 512 Smooshed (SPS), DeskPic (GFB),
+			416x560 DEGAS (PI1).</li>
+			<li>Created plugin for Imagine (might be interesting for Total Commander users,
+			as Imagine includes a Total Commander plugin).</li>
+			<li>Reduced CPU and memory usage in Windows thumbnail provider, ImageMagick
+			and XnView.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="1.3.0" date="2012-07-23">
+		<ul>
+			<li>Added Atari ST formats: DEGAS (PI1, PI2, PI3), DEGAS Elite (PC1, PC2, PC3),
+			NEOchrome (NEO), Spectrum 512 (SPU, SPC), Tiny Stuff (TNY, TN1, TN2, TN3),
+			STAD (PAC), CrackArt (CA1, CA2, CA3), Doodle (DOO), Art Director (ART).</li>
+			<li>Added Atari Portfolio formats (PGF, PGC).</li>
+			<li>More Atari 8-bit formats: Atari Player Editor (APL), Artist (ART),
+			Ascii-Art Editor (ART), Atari CAD (DRG),
+			AtariTools-800 (AGP, PLA, MIS, 4PL, 4MI, 4PM), ING 15 (ING),
+			Lepix dialect of CIN, raw images (GR7, G10, G11).</li>
+			<li>Fixed non-interlaced RIP modes.</li>
+			<li>FAILWin extended with "First/Last file in directory", "Skip files on error".</li>
+			<li>Narrow pictures were cropped in FAILWin.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="1.2.0" date="2011-12-16">
+		<ul>
+			<li>Added decoding of ColorViewSquash (RGB), Blazing Paddles (CHR, SHP, WND),
+			Magic Painter (MGP), Mad Designer (MBG), AtariGraphics (MIC),
+			Fun with Art (FWA), Rambrandt (RM0, RM1, RM2, RM3, RM4), XL-Paint (XLP),
+			XL-Paint MAX (MAX), SHIMC (SHC), Graph (ALL), APP View (APP),
+			Semi-Graphic logos Editor (SGE), Dir Logo Maker (DLM), Movie Maker (BKG, SHP),
+			BG9, G09, The Graphics Magician Picture Painter (SPC).</li>
+			<li>Improved decoding of all RAW and MIC, some RIP and FNT files.</li>
+			<li>Added the APV extension for the AP3 format.</li>
+			<li>Created GNOME thumbnailer (for Linux file browser Nautilus).</li>
+			<li>You may drag&amp;drop files to the FAILWin window.</li>
+			<li>GR8 wasn't registered in ImageMagick.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="1.1.0" date="2011-04-18">
+		<ul>
+			<li>Fixed decoding of ILC, AP3, RIP, PIC, CPR, HIP and CIN.</li>
+			<li>Added support for MCH, IGE, 256, AP2, JGP, DGP, ESC, PZM, IST and RAW.</li>
+			<li>Created Windows thumbnail provider.</li>
+			<li>Fixed user interface issues in FAILWin.</li>
+			<li>Fixed compilation errors with the new libpng.</li>
+			<li>Updated installation for new ImageMagick.</li>
+			<li>Moved source code from SVN to Git.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="1.0.1" date="2010-08-25">
+		<ul>
+			<li>Created Windows setup.</li>
+			<li>Created a coder for ImageMagick.</li>
+			<li>Added MCP, GHG and HR2 formats.</li>
+			<li>Improved the build process.</li>
+		</ul>
+	</release>
+
+	<release project="FAIL" version="1.0.0" date="2009-08-25">
+		<p>Initial release.</p>
+	</release>
+</div>

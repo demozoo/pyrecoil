@@ -1,0 +1,47 @@
+<html>
+	<script type="text/javascript" src="recoil.js"> </script>
+	<script type="text/javascript" src="html5recoil.js"> </script>
+	<script type="text/javascript">
+	function openFile(file)
+	{
+		var reader = new FileReader();
+		reader.onload = function (e) {
+			recoil2canvas(file.name, new Uint8Array(e.target.result));
+		};
+		reader.readAsArrayBuffer(file);
+	}
+
+	function dragHelper(e)
+	{
+		e.stopPropagation();
+		e.preventDefault();
+	}
+
+	function onDrop(e)
+	{
+		dragHelper(e);
+		openFile(e.dataTransfer.files[0]);
+	}
+
+	function fullScreen()
+	{
+		var canvas = document.getElementById("canvas");
+		if (canvas.webkitRequestFullScreen)
+			canvas.webkitRequestFullScreen();
+		else if (canvas.mozRequestFullScreen)
+			canvas.mozRequestFullScreen();
+	}
+	</script>
+	<body>
+		<p>This page decodes pictures in formats native to retro computers.
+		Decoding takes place in your browser, nothing is sent to a server.</p>
+
+		<p>Select file: <input type="file" onchange="openFile(this.files[0])" /></p>
+		<div style="border: solid #800080 1px; padding-top: 2em; padding-bottom: 2em;" ondragenter="dragHelper(event)" ondragover="dragHelper(event)" ondrop="onDrop(event)">
+			... or drag&amp;drop a file here!<br />
+			<canvas id="canvas" width="1" height="1"> </canvas>
+			<div id="status"> </div>
+		</div>
+		<input type="button" id="fullScreenButton" value="Fullscreen" onclick="fullScreen()" style="display: none" />
+	</body>
+</html>

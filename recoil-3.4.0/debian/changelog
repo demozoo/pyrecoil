@@ -1,0 +1,23 @@
+recoil (3.4.0-1) UNRELEASED; urgency=low
+
+  * New release.
+
+ -- Piotr Fusik <fox@scene.pl>  Tue, 2 Feb 2016 09:27:52 +0100
+
+recoil (3.3.0-1) UNRELEASED; urgency=low
+
+  * New release.
+
+ -- Piotr Fusik <fox@scene.pl>  Fri, 7 Aug 2015 17:56:32 +0200
+
+recoil (3.2.0-1) UNRELEASED; urgency=low
+
+  * New release.
+
+ -- Piotr Fusik <fox@scene.pl>  Wed, 28 Jan 2015 10:42:15 +0100
+
+recoil (3.1.0-1) UNRELEASED; urgency=low
+
+  * First deb packaging.
+
+ -- Piotr Fusik <fox@scene.pl>  Wed, 25 Jun 2014 09:58:19 +0200

@@ -1,0 +1,59 @@
+﻿<div>
+	<p>RECOIL is a viewer of pictures in native formats of classic computers:
+	Amiga, Amstrad CPC, Apple II, Atari 8-bit, Atari Portfolio, Atari ST,
+	Atari Falcon, BBC Micro, Commodore 16, Commodore 64, Commodore 128, Macintosh 128K,
+	MSX, Oric, SAM Coupé, TRS-80, TRS-80 Color Computer, ZX81 and ZX Spectrum.</p>
+
+	<p>RECOIL is available on Android, Windows, OS X, Linux and HTML 5 browsers.</p>
+
+	<h2>Android application</h2>
+	<p>The Android application is available in <a href="https://play.google.com/store/apps/details?id=net.sf.recoil">Google Play</a>.
+	It includes a file picker that lets you browse all directories on your device as well as ZIP archives.</p>
+	<img src="android.png" alt="Android application" />
+
+	<h2>Windows thumbnails</h2>
+	<p>Use a <tt>*.msi</tt> installer that matches your Windows version (32-bit or 64-bit).</p>
+	<img src="thumbrecoil.png" alt="Windows Explorer" />
+
+	<h2>OS X Quick Look</h2>
+	<p>Install as follows:</p>
+	<ol>
+		<li>Open <tt>recoil-3.4.0-osx.dmg</tt>.</li>
+		<li>Drag <tt>RECOIL.qlgenerator</tt> to <tt>QuickLook</tt>.</li>
+		<li>Re-log or run <tt>qlmanage -r</tt>.</li>
+	</ol>
+	<img src="qlrecoil.png" alt="Quick Look" />
+
+	<h2>GNOME thumbnails</h2>
+	<p>Install <tt>recoil-2png</tt> first, then <tt>recoil-thumbnailer</tt>.</p>
+	<img src="nautilus.png" alt="Nautilus" />
+
+	<h2>HTML 5 based viewer</h2>
+	<p><a href="html5recoil.html">Run</a> right inside your browser.</p>
+
+	<h2>RECOILWin - viewer for Windows</h2>
+	<p>Get from a <tt>*.msi</tt> installer or the <tt>*.zip</tt> archive.</p>
+	<img src="recoilwin.png" alt="RECOILWin" />
+
+	<h2>IrfanView plugin</h2>
+	<p>RECOIL is included in the "Formats" <a href="http://www.irfanview.com/">IrfanView</a> plugin.</p>
+
+	<h2>Plugins for Windows viewers</h2>
+	<p>The <tt>*.msi</tt> installer detects <a href="http://www.xnview.com">XnView</a>,
+	<a href="http://www.nyam.pe.kr/">Imagine</a> and <a href="http://www.getpaint.net/">Paint.NET</a>
+	and installs the corresponding RECOIL plugins.</p>
+
+	<h2>ImageMagick (de)coder</h2>
+	<p><a href="http://www.imagemagick.org/">ImageMagick</a> is a multi-platform suite to manipulate bitmaps.</p>
+	<p>RECOIL includes a plugin for it. On Windows use <tt>*.msi</tt>, on Linux install from source code.</p>
+
+	<h2>recoil2png</h2>
+	<p>This is a portable command-line converter to PNG files.
+	Available in <tt>*.msi</tt>, <tt>*.zip</tt>, <tt>*.deb</tt>, <tt>*.rpm</tt>.</p>
+	<p>Run the program from command line to see the syntax.
+	Unless you specify the <tt>-o/--output</tt> option, the output filename will be
+	constructed from the input filename with the extension changed to <tt>png</tt>.</p>
+
+	<h2>Python bindings</h2>
+	<p>Available <a href="https://github.com/gasman/pyrecoil">here</a>.</p>
+</div>
