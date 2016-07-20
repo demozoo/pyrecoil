@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="pyrecoil",
-    version="0.1.1",
+    version="0.2",
     packages=find_packages(),
     ext_modules=[recoil_module],
     include_package_data=True,
