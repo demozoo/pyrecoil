@@ -1,7 +1,7 @@
 pyrecoil
 ========
 
-*pyrecoil* provides Python bindings to `RECOIL <http://recoil.sourceforge.net/>`_, the Retro Computer Image Library, allowing you to open over 200 image file formats from retro computers.
+*pyrecoil* provides Python bindings to `RECOIL <http://recoil.sourceforge.net/>`_, the Retro Computer Image Library, allowing you to open over 400 image file formats from retro computers.
 
 Installation
 ~~~~~~~~~~~~
@@ -56,7 +56,7 @@ Usage
 Build notes
 ~~~~~~~~~~~
 
-The RECOIL library itself (bundled in the ``recoil-3.2.0`` directory) is implemented in the `Ć Programming Language <http://cito.sourceforge.net/>`_. For ease of distribution, the generated C output (``recoil.c`` and ``recoil.h``) from the ``cito`` transpiler is included in the package - this, along with ``recoil_interface.c``, forms the Python extension module.
+The RECOIL library itself is implemented in the `Ć Programming Language <https://github.com/pfusik/cito>`_. For ease of distribution, the generated C output (``recoil.c`` and ``recoil.h``) from the ``cito`` transpiler is included in the package - this, along with ``recoil_interface.c``, forms the Python extension module.
 
 Author
 ~~~~~~

@@ -26,7 +26,7 @@ static PyObject *
 ri_isourfile(PyObject *self, PyObject *args)
 {
     const char *filename;
-    cibool result;
+    bool result;
 
     if (!PyArg_ParseTuple(args, "s", &filename))
         return NULL;
@@ -44,7 +44,7 @@ ri_decode(PyObject *self, PyObject *args)
     PyObject *py_recoil;
     const char *filename;
     PyObject *content;
-    cibool result;
+    bool result;
 
     if (!PyArg_ParseTuple(args, "OsO", &py_recoil, &filename, &content))
         return NULL;
@@ -52,7 +52,7 @@ ri_decode(PyObject *self, PyObject *args)
     result = RECOIL_Decode(
         (RECOIL *)PyCObject_AsVoidPtr(py_recoil),
         filename,
-        (unsigned char *)PyByteArray_AsString(content),
+        (const uint8_t *)PyByteArray_AsString(content),
         PyByteArray_Size(content)
     );
     if (result) {

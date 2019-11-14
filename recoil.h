@@ -1,13 +1,7 @@
-/* Generated automatically with "cito". Do not edit. */
-#ifndef _RECOIL_H_
-#define _RECOIL_H_
-typedef int cibool;
-#ifndef TRUE
-#define TRUE 1
-#endif
-#ifndef FALSE
-#define FALSE 0
-#endif
+// Generated automatically with "cito". Do not edit.
+#pragma once
+#include <stdbool.h>
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,29 +11,103 @@ RECOIL *RECOIL_New(void);
 void RECOIL_Delete(RECOIL *self);
 
 /**
- * Short license notice.
- * Display after the credits.
+ * RECOIL version - major part.
  */
-#define RECOIL_COPYRIGHT  "This program is free software; you can redistribute it and/or modify\nit under the terms of the GNU General Public License as published\nby the Free Software Foundation; either version 2 of the License,\nor (at your option) any later version."
+#define RECOIL_VERSION_MAJOR 5
+
+/**
+ * RECOIL version - minor part.
+ */
+#define RECOIL_VERSION_MINOR 0
+
+/**
+ * RECOIL version - micro part.
+ */
+#define RECOIL_VERSION_MICRO 0
+
+/**
+ * RECOIL version as a string.
+ */
+#define RECOIL_VERSION "5.0.0"
+
+/**
+ * Years RECOIL was created in.
+ */
+#define RECOIL_YEARS "2009-2019"
 
 /**
  * Short credits for RECOIL.
  */
-#define RECOIL_CREDITS  "Retro Computer Image Library (C) 2009-2016 Piotr Fusik and Adrian Matoga\n"
+#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2019 Piotr Fusik and Adrian Matoga\n"
 
 /**
- * Decodes Atari picture file to an RGB bitmap.
- * Returns <code>true</code> on success.
- * @param filename Name of the file to decode. Only the extension is processed, for format recognition.
- * @param content File contents.
- * @param contentLength File length.
+ * Short license notice.
+ * Display after the credits.
  */
-cibool RECOIL_Decode(RECOIL *self, const char *filename, unsigned char const *content, int contentLength);
+#define RECOIL_COPYRIGHT "This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version."
 
 /**
- * Returns number of unique colors in the decoded picture.
+ * Maximum length of a supported input file.
+ * You may assume that files longer than this are not supported by RECOIL.
  */
-int RECOIL_GetColors(RECOIL *self);
+#define RECOIL_MAX_CONTENT_LENGTH 6291456
+
+/**
+ * Maximum width of a decoded image.
+ */
+#define RECOIL_MAX_WIDTH 2560
+
+/**
+ * Maximum height of a decoded image.
+ */
+#define RECOIL_MAX_HEIGHT 2560
+
+/**
+ * Maximum number of pixels in a decoded image.
+ */
+#define RECOIL_MAX_PIXELS_LENGTH 2854278
+
+/**
+ * Maximum length of a string returned by <code>GetPlatform()</code>.
+ */
+#define RECOIL_MAX_PLATFORM_LENGTH 21
+
+/**
+ * Returns decoded image width.
+ * @param self This <code>RECOIL</code>.
+ */
+int RECOIL_GetWidth(const RECOIL *self);
+
+/**
+ * Returns decoded image height.
+ * @param self This <code>RECOIL</code>.
+ */
+int RECOIL_GetHeight(const RECOIL *self);
+
+/**
+ * Returns pixels of the decoded image, top-down, left-to-right.
+ * Each pixel is a 24-bit integer 0xRRGGBB.
+ * @param self This <code>RECOIL</code>.
+ */
+int const *RECOIL_GetPixels(const RECOIL *self);
+
+/**
+ * Returns the computer family of the decoded file format.
+ * @param self This <code>RECOIL</code>.
+ */
+const char *RECOIL_GetPlatform(const RECOIL *self);
+
+/**
+ * Returns original width of the decoded image (informational).
+ * @param self This <code>RECOIL</code>.
+ */
+int RECOIL_GetOriginalWidth(const RECOIL *self);
+
+/**
+ * Returns original height of the decoded image (informational).
+ * @param self This <code>RECOIL</code>.
+ */
+int RECOIL_GetOriginalHeight(const RECOIL *self);
 
 /**
  * Returns the number of alternating frames the pictures is composed of.
@@ -50,78 +118,39 @@ int RECOIL_GetColors(RECOIL *self);
  * <li>3 means the picture is displayed by alternating three sub-pictures.</li>
  * </ul>
  * 
+ * @param self This <code>RECOIL</code>.
  */
-int RECOIL_GetFrames(RECOIL const *self);
+int RECOIL_GetFrames(const RECOIL *self);
 
 /**
- * Returns decoded image height.
+ * Sets Atari 8-bit palette from a 768-byte array (256 times RGB).
+ * @param self This <code>RECOIL</code>.
  */
-int RECOIL_GetHeight(RECOIL const *self);
-
-/**
- * Returns original height of the decoded image (informational).
- */
-int RECOIL_GetOriginalHeight(RECOIL const *self);
-
-/**
- * Returns original width of the decoded image (informational).
- */
-int RECOIL_GetOriginalWidth(RECOIL const *self);
-
-/**
- * Returns pixels of the decoded image, top-down, left-to-right.
- * Each pixel is a 24-bit integer 0xRRGGBB.
- */
-int const *RECOIL_GetPixels(RECOIL const *self);
-
-/**
- * Returns the computer family of the decoded file format.
- */
-const char *RECOIL_GetPlatform(RECOIL const *self);
-
-/**
- * Returns decoded image width.
- */
-int RECOIL_GetWidth(RECOIL const *self);
+void RECOIL_SetAtari8Palette(RECOIL *self, uint8_t const *content);
 
 /**
  * Checks whether the filename extension is supported by RECOIL.
  * <code>true</code> doesn't necessarily mean that the file contents is valid for RECOIL.
- * This function is meant to avoid reading files which are known to be
- * not supported (another criterium is the maximum file size, <code>MaxContentLength</code>).
+ * This function is meant to avoid reading files which are known to be not supported.
+ * Another criterium is the maximum file size, <code>MaxContentLength</code>.
  */
-cibool RECOIL_IsOurFile(const char *filename);
+bool RECOIL_IsOurFile(const char *filename);
 
 /**
- * Maximum length of a supported input file.
- * You may assume that files longer than this are not supported by RECOIL.
+ * Decodes a picture file to an RGB bitmap.
+ * Returns <code>true</code> on success.
+ * @param self This <code>RECOIL</code>.
+ * @param filename Name of the file to decode. Only the extension is processed, for format recognition.
+ * @param content File contents.
+ * @param contentLength File length.
  */
-#define RECOIL_MAX_CONTENT_LENGTH  6291456
+bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
 
 /**
- * Maximum height of a decoded image.
+ * Returns number of unique colors in the decoded picture.
+ * @param self This <code>RECOIL</code>.
  */
-#define RECOIL_MAX_HEIGHT  1200
-
-/**
- * Maximum number of pixels in a decoded image.
- */
-#define RECOIL_MAX_PIXELS_LENGTH  1572864
-
-/**
- * Maximum length of a string returned by <code>GetPlatform()</code>.
- */
-#define RECOIL_MAX_PLATFORM_LENGTH  21
-
-/**
- * Maximum width of a decoded image.
- */
-#define RECOIL_MAX_WIDTH  2048
-
-/**
- * Sets Atari 8-bit palette from a 768-byte array (256 times RGB).
- */
-void RECOIL_SetAtari8Palette(RECOIL *self, unsigned char const *content);
+int RECOIL_GetColors(RECOIL *self);
 
 /**
  * Converts the decoded picture to palette-indexed.
@@ -129,36 +158,11 @@ void RECOIL_SetAtari8Palette(RECOIL *self, unsigned char const *content);
  * Call <code>GetColors()</code> for the actual number of colors.
  * Returns <code>null</code> if conversion fails,
  * because there are more than 256 colors.
+ * @param self This <code>RECOIL</code>.
  * @param indexes Out: palette-indexed picture.
  */
-int const *RECOIL_ToPalette(RECOIL *self, unsigned char *indexes);
-
-/**
- * RECOIL version as a string.
- */
-#define RECOIL_VERSION  "3.4.0"
-
-/**
- * RECOIL version - major part.
- */
-#define RECOIL_VERSION_MAJOR  3
-
-/**
- * RECOIL version - micro part.
- */
-#define RECOIL_VERSION_MICRO  0
-
-/**
- * RECOIL version - minor part.
- */
-#define RECOIL_VERSION_MINOR  4
-
-/**
- * Years RECOIL was created in.
- */
-#define RECOIL_YEARS  "2009-2016"
+int const *RECOIL_ToPalette(RECOIL *self, uint8_t *indexes);
 
 #ifdef __cplusplus
 }
-#endif
 #endif
