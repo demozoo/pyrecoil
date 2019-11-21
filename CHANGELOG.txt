@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.3 (xxxx-xx-xx)
+----------------
+
+* Updated RECOIL to 5.0.0 (Piotr Fusik)
+
+
 0.2 (2016-07-20)
 ----------------
 
