@@ -18,7 +18,7 @@ setup(
     description="Python bindings for RECOIL, the Retro Computer Image Library",
     long_description=readme(),
     classifiers=[
-        "Development Status :: Development Status :: 5 - Production/Stable",
+        "Development Status :: 5 - Production/Stable",
         "Topic :: Multimedia :: Graphics",
         "Topic :: Multimedia :: Graphics :: Graphics Conversion",
         "Programming Language :: Python :: 2",
