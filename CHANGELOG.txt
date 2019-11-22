@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.3 (xxxx-xx-xx)
+0.3 (2019-11-22)
 ----------------
 
 * Updated RECOIL to 5.0.0 (Piotr Fusik)
