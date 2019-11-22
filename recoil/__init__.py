@@ -6,7 +6,7 @@ class RecoilImage(object):
             raise ValueError("%s is not a valid RECOIL file" % filename)
 
         if f is None:
-            with open(filename) as _f:
+            with open(filename, 'rb') as _f:
                 content = bytearray(_f.read())
         else:
             content = bytearray(f.read())
@@ -43,4 +43,4 @@ class RecoilImage(object):
 
     def to_pil(self):
         from PIL import Image
-        return Image.frombytes('RGB', self.size, str(self.get_pixels()))
+        return Image.frombytes('RGB', self.size, bytes(self.get_pixels()))

@@ -1,10 +1,15 @@
 #include <Python.h>
 #include "recoil.h"
 
+#if PY_MAJOR_VERSION >= 3
+    #define PyInt_FromLong PyLong_FromLong
+    #define PyString_FromString PyUnicode_FromString
+#endif
+
 static void
-ri_delete(void *recoil)
+ri_delete(PyObject *py_recoil)
 {
-    RECOIL_Delete((RECOIL *)recoil);
+    RECOIL_Delete((RECOIL *)PyCapsule_GetPointer(py_recoil, NULL));
 }
 
 static PyObject *
@@ -19,7 +24,7 @@ ri_new(PyObject *self, PyObject *args)
     if (!recoil)
         return NULL;
 
-    return PyCObject_FromVoidPtr((void *)recoil, ri_delete);
+    return PyCapsule_New((void *)recoil, NULL, ri_delete);
 }
 
 static PyObject *
@@ -50,7 +55,7 @@ ri_decode(PyObject *self, PyObject *args)
         return NULL;
 
     result = RECOIL_Decode(
-        (RECOIL *)PyCObject_AsVoidPtr(py_recoil),
+        (RECOIL *)PyCapsule_GetPointer(py_recoil, NULL),
         filename,
         (const uint8_t *)PyByteArray_AsString(content),
         PyByteArray_Size(content)
@@ -71,7 +76,7 @@ ri_getcolors(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &py_recoil))
         return NULL;
 
-    result = RECOIL_GetColors((RECOIL *)PyCObject_AsVoidPtr(py_recoil));
+    result = RECOIL_GetColors((RECOIL *)PyCapsule_GetPointer(py_recoil, NULL));
 
     return PyInt_FromLong(result);
 }
@@ -85,7 +90,7 @@ ri_getframes(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &py_recoil))
         return NULL;
 
-    result = RECOIL_GetFrames((RECOIL *)PyCObject_AsVoidPtr(py_recoil));
+    result = RECOIL_GetFrames((RECOIL *)PyCapsule_GetPointer(py_recoil, NULL));
 
     return PyInt_FromLong(result);
 }
@@ -100,7 +105,7 @@ ri_getsize(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &py_recoil))
         return NULL;
 
-    recoil = (RECOIL *)PyCObject_AsVoidPtr(py_recoil);
+    recoil = (RECOIL *)PyCapsule_GetPointer(py_recoil, NULL);
 
     width = PyInt_FromLong(RECOIL_GetWidth(recoil));
     height = PyInt_FromLong(RECOIL_GetHeight(recoil));
@@ -118,7 +123,7 @@ ri_getoriginalsize(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &py_recoil))
         return NULL;
 
-    recoil = (RECOIL *)PyCObject_AsVoidPtr(py_recoil);
+    recoil = (RECOIL *)PyCapsule_GetPointer(py_recoil, NULL);
 
     width = PyInt_FromLong(RECOIL_GetOriginalWidth(recoil));
     height = PyInt_FromLong(RECOIL_GetOriginalHeight(recoil));
@@ -135,7 +140,7 @@ ri_getplatform(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &py_recoil))
         return NULL;
 
-    result = RECOIL_GetPlatform((RECOIL *)PyCObject_AsVoidPtr(py_recoil));
+    result = RECOIL_GetPlatform((RECOIL *)PyCapsule_GetPointer(py_recoil, NULL));
 
     return PyString_FromString(result);
 }
@@ -154,12 +159,12 @@ ri_getpixels(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &py_recoil))
         return NULL;
 
-    recoil = (RECOIL *)PyCObject_AsVoidPtr(py_recoil);
+    recoil = (RECOIL *)PyCapsule_GetPointer(py_recoil, NULL);
 
     pixel_count = RECOIL_GetWidth(recoil) * RECOIL_GetHeight(recoil);
     buffer = PyByteArray_FromObject(PyInt_FromLong(pixel_count * 3));
 
-    in_buf = RECOIL_GetPixels((RECOIL *)PyCObject_AsVoidPtr(py_recoil));
+    in_buf = RECOIL_GetPixels(recoil);
     in_buf_end = in_buf + pixel_count;
 
     out_buf = PyByteArray_AsString(buffer);
@@ -184,8 +189,28 @@ static PyMethodDef RecoilMethods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-PyMODINIT_FUNC
-init_recoil(void)
-{
-    (void) Py_InitModule("_recoil", RecoilMethods);
-}
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "_recoil",                                   /* m_name */
+        "Internal interface to the RECOIL library",  /* m_doc */
+        -1,                                          /* m_size */
+        RecoilMethods,                               /* m_methods */
+        NULL,                                        /* m_slots */
+        NULL,                                        /* m_traverse */
+        NULL,                                        /* m_clear */
+        NULL,                                        /* m_free */
+    };
+
+    PyMODINIT_FUNC
+    PyInit__recoil(void)
+    {
+        return PyModule_Create(&moduledef);
+    }
+#else
+    PyMODINIT_FUNC
+    init_recoil(void)
+    {
+        (void) Py_InitModule("_recoil", RecoilMethods);
+    }
+#endif

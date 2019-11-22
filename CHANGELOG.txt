@@ -5,6 +5,7 @@ Changelog
 ----------------
 
 * Updated RECOIL to 5.0.0 (Piotr Fusik)
+* Python 3 compatibility (Matt Westcott)
 
 
 0.2 (2016-07-20)
