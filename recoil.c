@@ -1,13 +1,8 @@
 // Generated automatically with "cito". Do not edit.
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "recoil.h"
-
-static void CiString_Assign(char **str, char *value)
-{
-	free(*str);
-	*str = value;
-}
 
 static char *CiString_Substring(const char *str, int len)
 {
@@ -85,6 +80,7 @@ typedef enum {
 	RECOILResolution_APPLE_I_I1X1,
 	RECOILResolution_APPLE_I_IE1X2,
 	RECOILResolution_APPLE_I_I_G_S1X1,
+	RECOILResolution_APPLE_I_I_G_S1X2,
 	RECOILResolution_MACINTOSH1X1,
 	RECOILResolution_XE1X1,
 	RECOILResolution_XE2X1,
@@ -176,6 +172,7 @@ typedef struct ZxpStream ZxpStream;
 typedef struct SprStream SprStream;
 typedef struct BitStream BitStream;
 typedef struct X68KPicStream X68KPicStream;
+typedef struct Mx1Stream Mx1Stream;
 typedef struct MppPaletteStream MppPaletteStream;
 typedef struct MultiPalette MultiPalette;
 typedef struct ArtPalette ArtPalette;
@@ -186,6 +183,7 @@ typedef struct ShamLacePalette ShamLacePalette;
 typedef struct PchgPalette PchgPalette;
 typedef struct RleStream RleStream;
 typedef struct BldStream BldStream;
+typedef struct DaVinciStream DaVinciStream;
 typedef struct BbgStream BbgStream;
 typedef struct MspStream MspStream;
 typedef struct C64KoalaStream C64KoalaStream;
@@ -215,8 +213,10 @@ typedef struct VdatStream VdatStream;
 typedef struct HimStream HimStream;
 typedef struct IcStream IcStream;
 typedef struct DeepStream DeepStream;
+typedef struct PackBytesStream PackBytesStream;
 typedef struct Lz4Stream Lz4Stream;
 typedef struct Tre1Stream Tre1Stream;
+typedef struct Nl3Stream Nl3Stream;
 typedef struct SfdnStream SfdnStream;
 typedef struct G9bStream G9bStream;
 typedef struct MigStream MigStream;
@@ -265,7 +265,7 @@ static bool Stream_SkipUntilByte(Stream *self, int expected);
  * Returns <code>true</code> on success, <code>false</code> if not enough data.
  * @param self This <code>Stream</code>.
  */
-bool Stream_ReadBytes(Stream *self, uint8_t *dest, int destOffset, int count);
+static bool Stream_ReadBytes(Stream *self, uint8_t *dest, int destOffset, int count);
 
 /**
  * Reads a hexadecimal ASCII digit and returns its value.
@@ -340,10 +340,14 @@ static int SprStream_ReadBase(SprStream *self, int b);
  */
 static int SprStream_ReadInt(SprStream *self);
 
+typedef struct {
+	int (*readBit)(BitStream *self);
+} BitStreamVtbl;
 /**
  * Readable in-memory stream of bits, most-significant bit first.
  */
 struct BitStream {
+	const BitStreamVtbl *vtbl;
 	Stream base;
 	int bits;
 };
@@ -364,12 +368,22 @@ static int BitStream_ReadBit(BitStream *self);
  */
 static int BitStream_ReadBits(BitStream *self, int count);
 
+static int BitStream_ReadNl3Char(BitStream *self, bool skipSpace);
+
 struct X68KPicStream {
 	BitStream base;
 };
 static void X68KPicStream_Construct(X68KPicStream *self);
 
 static int X68KPicStream_ReadLength(X68KPicStream *self);
+
+struct Mx1Stream {
+	X68KPicStream base;
+	uint8_t decodeTable[256];
+};
+static void Mx1Stream_Construct(Mx1Stream *self);
+
+static int Mx1Stream_ReadBit(Mx1Stream *self);
 
 struct MppPaletteStream {
 	BitStream base;
@@ -379,10 +393,10 @@ static void MppPaletteStream_Construct(MppPaletteStream *self);
 static int MppPaletteStream_Read(MppPaletteStream *self);
 
 typedef struct {
+	int (*readBit)(BitStream *self);
 	void (*setLinePalette)(MultiPalette *self, RECOIL *recoil, int y);
 } MultiPaletteVtbl;
 struct MultiPalette {
-	const MultiPaletteVtbl *vtbl;
 	BitStream base;
 };
 static void MultiPalette_Construct(MultiPalette *self);
@@ -451,6 +465,7 @@ static void PchgPalette_SetOcsColors(PchgPalette *self, RECOIL *recoil, int pale
 static void PchgPalette_SetLinePalette(PchgPalette *self, RECOIL *recoil, int y);
 
 typedef struct {
+	int (*readBit)(BitStream *self);
 	bool (*readCommand)(RleStream *self);
 	int (*readValue)(RleStream *self);
 } RleStreamVtbl;
@@ -461,7 +476,6 @@ typedef struct {
  * and are allowed to override <code>ReadValue()</code>.
  */
 struct RleStream {
-	const RleStreamVtbl *vtbl;
 	BitStream base;
 	int repeatCount;
 	int repeatValue;
@@ -511,7 +525,16 @@ struct BldStream {
 };
 static void BldStream_Construct(BldStream *self);
 
-bool BldStream_ReadCommand(BldStream *self);
+static bool BldStream_ReadCommand(BldStream *self);
+
+struct DaVinciStream {
+	RleStream base;
+};
+static void DaVinciStream_Construct(DaVinciStream *self);
+
+static int DaVinciStream_ReadValue(DaVinciStream *self);
+
+static bool DaVinciStream_ReadCommand(DaVinciStream *self);
 
 struct BbgStream {
 	RleStream base;
@@ -528,28 +551,28 @@ static void BbgStream_Construct(BbgStream *self);
  */
 static int BbgStream_ReadBitsReverse(BbgStream *self, int count);
 
-bool BbgStream_ReadCommand(BbgStream *self);
+static bool BbgStream_ReadCommand(BbgStream *self);
 
 struct MspStream {
 	RleStream base;
 };
 static void MspStream_Construct(MspStream *self);
 
-bool MspStream_ReadCommand(MspStream *self);
+static bool MspStream_ReadCommand(MspStream *self);
 
 struct C64KoalaStream {
 	RleStream base;
 };
 static void C64KoalaStream_Construct(C64KoalaStream *self);
 
-bool C64KoalaStream_ReadCommand(C64KoalaStream *self);
+static bool C64KoalaStream_ReadCommand(C64KoalaStream *self);
 
 struct GoDotStream {
 	RleStream base;
 };
 static void GoDotStream_Construct(GoDotStream *self);
 
-bool GoDotStream_ReadCommand(GoDotStream *self);
+static bool GoDotStream_ReadCommand(GoDotStream *self);
 
 struct CmpStream {
 	RleStream base;
@@ -557,7 +580,7 @@ struct CmpStream {
 };
 static void CmpStream_Construct(CmpStream *self);
 
-bool CmpStream_ReadCommand(CmpStream *self);
+static bool CmpStream_ReadCommand(CmpStream *self);
 
 struct DrpStream {
 	RleStream base;
@@ -565,7 +588,7 @@ struct DrpStream {
 };
 static void DrpStream_Construct(DrpStream *self);
 
-bool DrpStream_ReadCommand(DrpStream *self);
+static bool DrpStream_ReadCommand(DrpStream *self);
 
 static uint8_t const *DrpStream_UnpackFile(uint8_t const *content, int contentLength, const char *signature, uint8_t *unpacked, int unpackedLength);
 
@@ -574,28 +597,28 @@ struct HpmStream {
 };
 static void HpmStream_Construct(HpmStream *self);
 
-bool HpmStream_ReadCommand(HpmStream *self);
+static bool HpmStream_ReadCommand(HpmStream *self);
 
 struct PgcStream {
 	RleStream base;
 };
 static void PgcStream_Construct(PgcStream *self);
 
-bool PgcStream_ReadCommand(PgcStream *self);
+static bool PgcStream_ReadCommand(PgcStream *self);
 
 struct ScStream {
 	RleStream base;
 };
 static void ScStream_Construct(ScStream *self);
 
-bool ScStream_ReadCommand(ScStream *self);
+static bool ScStream_ReadCommand(ScStream *self);
 
 struct CciStream {
 	RleStream base;
 };
 static void CciStream_Construct(CciStream *self);
 
-bool CciStream_ReadCommand(CciStream *self);
+static bool CciStream_ReadCommand(CciStream *self);
 
 static bool CciStream_UnpackGr15(CciStream *self, uint8_t *unpacked, int unpackedOffset);
 
@@ -604,7 +627,7 @@ struct PackBitsStream {
 };
 static void PackBitsStream_Construct(PackBitsStream *self);
 
-bool PackBitsStream_ReadCommand(PackBitsStream *self);
+static bool PackBitsStream_ReadCommand(PackBitsStream *self);
 
 static bool PackBitsStream_UnpackBitplaneLines(PackBitsStream *self, uint8_t *unpacked, int width, int height, int bitplanes, bool compressed, bool hasMask);
 
@@ -613,35 +636,35 @@ struct SpcStream {
 };
 static void SpcStream_Construct(SpcStream *self);
 
-bool SpcStream_ReadCommand(SpcStream *self);
+static bool SpcStream_ReadCommand(SpcStream *self);
 
 struct SpsStream {
 	RleStream base;
 };
 static void SpsStream_Construct(SpsStream *self);
 
-bool SpsStream_ReadCommand(SpsStream *self);
+static bool SpsStream_ReadCommand(SpsStream *self);
 
 struct SrStream {
 	RleStream base;
 };
 static void SrStream_Construct(SrStream *self);
 
-bool SrStream_ReadCommand(SrStream *self);
+static bool SrStream_ReadCommand(SrStream *self);
 
 struct PacStream {
 	RleStream base;
 };
 static void PacStream_Construct(PacStream *self);
 
-bool PacStream_ReadCommand(PacStream *self);
+static bool PacStream_ReadCommand(PacStream *self);
 
 struct XlpStream {
 	RleStream base;
 };
 static void XlpStream_Construct(XlpStream *self);
 
-bool XlpStream_ReadCommand(XlpStream *self);
+static bool XlpStream_ReadCommand(XlpStream *self);
 
 struct AmstradStream {
 	RleStream base;
@@ -649,7 +672,7 @@ struct AmstradStream {
 };
 static void AmstradStream_Construct(AmstradStream *self);
 
-bool AmstradStream_ReadCommand(AmstradStream *self);
+static bool AmstradStream_ReadCommand(AmstradStream *self);
 
 static bool AmstradStream_UnpackFile(uint8_t const *content, int contentOffset, int contentLength, uint8_t *unpacked, int unpackedLength);
 
@@ -658,14 +681,14 @@ struct CpiStream {
 };
 static void CpiStream_Construct(CpiStream *self);
 
-bool CpiStream_ReadCommand(CpiStream *self);
+static bool CpiStream_ReadCommand(CpiStream *self);
 
 struct XeKoalaStream {
 	RleStream base;
 };
 static void XeKoalaStream_Construct(XeKoalaStream *self);
 
-bool XeKoalaStream_ReadCommand(XeKoalaStream *self);
+static bool XeKoalaStream_ReadCommand(XeKoalaStream *self);
 
 static bool XeKoalaStream_UnpackRaw(int type, uint8_t const *content, int contentOffset, int contentLength, uint8_t *unpacked, int unpackedLength);
 
@@ -679,7 +702,7 @@ static void ImgStream_Construct(ImgStream *self);
 
 static int ImgStream_GetLineRepeatCount(ImgStream *self);
 
-bool ImgStream_ReadCommand(ImgStream *self);
+static bool ImgStream_ReadCommand(ImgStream *self);
 
 struct CaStream {
 	RleStream base;
@@ -688,7 +711,7 @@ struct CaStream {
 };
 static void CaStream_Construct(CaStream *self);
 
-bool CaStream_ReadCommand(CaStream *self);
+static bool CaStream_ReadCommand(CaStream *self);
 
 static bool CaStream_UnpackCa(CaStream *self, uint8_t *unpacked, int unpackedOffset);
 
@@ -701,14 +724,14 @@ static void RgbStream_Construct(RgbStream *self);
 
 static int RgbStream_ReadValue(RgbStream *self);
 
-bool RgbStream_ReadCommand(RgbStream *self);
+static bool RgbStream_ReadCommand(RgbStream *self);
 
 struct TnyPcsStream {
 	RleStream base;
 };
 static void TnyPcsStream_Construct(TnyPcsStream *self);
 
-bool TnyPcsStream_ReadTnyCommand(TnyPcsStream *self);
+static bool TnyPcsStream_ReadTnyCommand(TnyPcsStream *self);
 
 struct TnyStream {
 	TnyPcsStream base;
@@ -717,7 +740,7 @@ struct TnyStream {
 };
 static void TnyStream_Construct(TnyStream *self);
 
-bool TnyStream_ReadCommand(TnyStream *self);
+static bool TnyStream_ReadCommand(TnyStream *self);
 
 static int TnyStream_ReadValue(TnyStream *self);
 
@@ -728,7 +751,7 @@ struct PcsStream {
 };
 static void PcsStream_Construct(PcsStream *self);
 
-bool PcsStream_ReadCommand(PcsStream *self);
+static bool PcsStream_ReadCommand(PcsStream *self);
 
 static int PcsStream_ReadValue(PcsStream *self);
 
@@ -743,7 +766,7 @@ struct VdatStream {
 };
 static void VdatStream_Construct(VdatStream *self);
 
-bool VdatStream_ReadCommand(VdatStream *self);
+static bool VdatStream_ReadCommand(VdatStream *self);
 
 struct HimStream {
 	RleStream base;
@@ -752,7 +775,7 @@ static void HimStream_Construct(HimStream *self);
 
 static int HimStream_ReadValue(HimStream *self);
 
-bool HimStream_ReadCommand(HimStream *self);
+static bool HimStream_ReadCommand(HimStream *self);
 
 struct IcStream {
 	RleStream base;
@@ -761,14 +784,14 @@ static void IcStream_Construct(IcStream *self);
 
 static bool IcStream_ReadCount(IcStream *self);
 
-bool IcStream_ReadCommand(IcStream *self);
+static bool IcStream_ReadCommand(IcStream *self);
 
 struct DeepStream {
 	PackBitsStream base;
 	int components;
 	int componentShift[6];
 	int currentByte;
-	int line[2560];
+	int line[10000];
 };
 static void DeepStream_Construct(DeepStream *self);
 
@@ -779,6 +802,15 @@ static int DeepStream_ReadValue(DeepStream *self);
 static int DeepStream_ReadNibble(DeepStream *self);
 
 static bool DeepStream_ReadDeltaLine(DeepStream *self, int width, int tvdcOffset);
+
+struct PackBytesStream {
+	Stream base;
+	int count;
+	int pattern;
+};
+static void PackBytesStream_Construct(PackBytesStream *self);
+
+static int PackBytesStream_ReadUnpacked(PackBytesStream *self);
 
 struct Lz4Stream {
 	Stream base;
@@ -797,9 +829,18 @@ struct Tre1Stream {
 };
 static void Tre1Stream_Construct(Tre1Stream *self);
 
-bool Tre1Stream_ReadCommand(Tre1Stream *self);
+static bool Tre1Stream_ReadCommand(Tre1Stream *self);
 
 static int Tre1Stream_ReadValue(Tre1Stream *self);
+
+struct Nl3Stream {
+	RleStream base;
+};
+static void Nl3Stream_Construct(Nl3Stream *self);
+
+static int Nl3Stream_ReadValue(Nl3Stream *self);
+
+static bool Nl3Stream_ReadCommand(Nl3Stream *self);
 
 struct SfdnStream {
 	BitStream base;
@@ -833,9 +874,9 @@ struct Ice21Stream {
 
 static int Ice21Stream_GetUnpackedLength(const Ice21Stream *self);
 
-int Ice21Stream_ReadBit(Ice21Stream *self);
+static int Ice21Stream_ReadBit(Ice21Stream *self);
 
-int Ice21Stream_ReadBits(Ice21Stream *self, int count);
+static int Ice21Stream_ReadBits(Ice21Stream *self, int count);
 
 static int Ice21Stream_CountOnes(Ice21Stream *self, int max);
 
@@ -867,7 +908,7 @@ static int Q4Stream_ReadCode(Q4Stream *self);
 
 static bool Q4Stream_UnpackQ4(Q4Stream *self);
 
-bool Q4Stream_ReadCommand(Q4Stream *self);
+static bool Q4Stream_ReadCommand(Q4Stream *self);
 
 struct PiStream {
 	BitStream base;
@@ -1030,7 +1071,7 @@ static int GtiaRenderer_GetColor(const GtiaRenderer *self, int objects);
 
 static void GtiaRenderer_StartLine(GtiaRenderer *self, int startHpos);
 
-int GtiaRenderer_GetHiresColor(const GtiaRenderer *self, int c);
+static int GtiaRenderer_GetHiresColor(const GtiaRenderer *self, int c);
 
 static int GtiaRenderer_DrawSpan(GtiaRenderer *self, int y, int hpos, int untilHpos, AnticMode anticMode, uint8_t *frame, int width);
 
@@ -1041,14 +1082,14 @@ struct HcmRenderer {
 };
 static void HcmRenderer_Construct(HcmRenderer *self);
 
-int HcmRenderer_GetPlayfieldByte(HcmRenderer *self, int y, int column);
+static int HcmRenderer_GetPlayfieldByte(HcmRenderer *self, int y, int column);
 
 struct GedRenderer {
 	GtiaRenderer base;
 };
 static void GedRenderer_Construct(GedRenderer *self);
 
-int GedRenderer_GetPlayfieldByte(GedRenderer *self, int y, int column);
+static int GedRenderer_GetPlayfieldByte(GedRenderer *self, int y, int column);
 
 struct PgrRenderer {
 	GtiaRenderer base;
@@ -1056,7 +1097,7 @@ struct PgrRenderer {
 };
 static void PgrRenderer_Construct(PgrRenderer *self);
 
-int PgrRenderer_GetPlayfieldByte(PgrRenderer *self, int y, int column);
+static int PgrRenderer_GetPlayfieldByte(PgrRenderer *self, int y, int column);
 
 struct MchRenderer {
 	GtiaRenderer base;
@@ -1064,7 +1105,7 @@ struct MchRenderer {
 };
 static void MchRenderer_Construct(MchRenderer *self);
 
-int MchRenderer_GetPlayfieldByte(MchRenderer *self, int y, int column);
+static int MchRenderer_GetPlayfieldByte(MchRenderer *self, int y, int column);
 
 struct G2fRenderer {
 	GtiaRenderer base;
@@ -1074,9 +1115,9 @@ struct G2fRenderer {
 };
 static void G2fRenderer_Construct(G2fRenderer *self);
 
-int G2fRenderer_GetHiresColor(const G2fRenderer *self, int c);
+static int G2fRenderer_GetHiresColor(const G2fRenderer *self, int c);
 
-int G2fRenderer_GetPlayfieldByte(G2fRenderer *self, int y, int column);
+static int G2fRenderer_GetPlayfieldByte(G2fRenderer *self, int y, int column);
 
 static bool G2fRenderer_SetSprite(uint8_t *hpos, uint8_t *sizes, int i, uint8_t const *content, int spriteOffset);
 
@@ -1164,7 +1205,16 @@ static bool RECOIL_CopyPrevious(uint8_t *unpacked, int unpackedOffset, int dista
 
 static bool RECOIL_ApplyBlend(RECOIL *self);
 
-int RECOIL_ReadFile(const RECOIL *self, const char *filename, uint8_t *content, int contentLength);
+/**
+ * Reads a companion file to the specified byte array.
+ * Implement this method in a subclass to enable support for multi-file images.
+ * Returns the number of bytes read (up to <code>contentLength</code>) or -1 on error.
+ * @param self This <code>RECOIL</code>.
+ * @param filename Name of the file to read.
+ * @param content Out: target for the file contents.
+ * @param contentLength Maximum number of bytes to read.
+ */
+static int RECOIL_ReadFile(const RECOIL *self, const char *filename, uint8_t *content, int contentLength);
 
 static int RECOIL_ReadCompanionFile(const RECOIL *self, const char *baseFilename, const char *upperExt, const char *lowerExt, uint8_t *content, int contentLength);
 
@@ -1179,6 +1229,8 @@ static int RECOIL_GetB5G5R5Color(int c);
 static int RECOIL_GetR5G5B5Color(int c);
 
 static int RECOIL_GetG6R5B5Color(int c);
+
+static int RECOIL_Get729Color(int c);
 
 static int RECOIL_GetFalconTrueColor(uint8_t const *content, int contentOffset);
 
@@ -1293,13 +1345,13 @@ static int RECOIL_GetG3R3B2Color(int c);
 
 static void RECOIL_SetUlaPlus(RECOIL *self, uint8_t const *content, int paletteOffset);
 
+static int RECOIL_GetZxLineOffset(int y);
+
 static void RECOIL_DecodeZx(RECOIL *self, uint8_t const *content, int bitmapOffset, int attributesOffset, int attributesMode, int pixelsOffset);
 
 static void RECOIL_DecodeTimexHires(RECOIL *self, uint8_t const *content, int contentOffset, int pixelsOffset);
 
 static bool RECOIL_DecodeHrg(RECOIL *self, uint8_t const *content, int contentLength);
-
-static bool RECOIL_DecodeScr(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeZxIfl(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -1328,6 +1380,14 @@ static bool RECOIL_DecodeZxp(RECOIL *self, uint8_t const *content, int contentLe
 static bool RECOIL_DecodeBsc(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeChrd(RECOIL *self, uint8_t const *content, int contentLength);
+
+static int RECOIL_GetBspBitmapPixel(uint8_t const *content, int bitmapOffset, int x, int y);
+
+static bool RECOIL_DecodeBspFrame(RECOIL *self, int pixelsOffset, uint8_t const *content, int contentLength, int bitmapOffset, int borderOffset);
+
+static bool RECOIL_DecodeBsp(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeNxi(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeSxg(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -1425,7 +1485,9 @@ static bool RECOIL_DecodeHgr(RECOIL *self, uint8_t const *content, int contentLe
 
 static bool RECOIL_DecodeAppleIIDhr(RECOIL *self, uint8_t const *content, int contentLength);
 
-static void RECOIL_DecodeShrLine(RECOIL *self, uint8_t const *content, int y, int paletteOffset);
+static void RECOIL_SetAppleIIGSPalette(RECOIL *self, uint8_t const *content, int contentOffset, int reverse);
+
+static void RECOIL_DecodeShrLine(RECOIL *self, uint8_t const *content, int y);
 
 static bool RECOIL_DecodeAppleIIShr(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -1433,7 +1495,15 @@ static bool RECOIL_DecodeSh3(RECOIL *self, uint8_t const *content, int contentLe
 
 static void RECOIL_DrawSprByte(RECOIL *self, int x1, int y, int b);
 
-static bool RECOIL_DecodeSpr(RECOIL *self, uint8_t const *content, int contentLength);
+static bool RECOIL_DecodeAppleSpr(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodePackBytes(RECOIL *self, PackBytesStream *stream, int pixelsOffset, int unpackedBytes);
+
+static bool RECOIL_DecodePaintworks(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_Decode3201(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeApfShr(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeScs4(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -1444,6 +1514,18 @@ static bool RECOIL_DecodeX68KPicChain(RECOIL *self, BitStream *stream, int pixel
 static bool RECOIL_DecodeX68KPicScreen(RECOIL *self, X68KPicStream *stream, int pixelsLength, int platform, int depth);
 
 static bool RECOIL_DecodeX68KPic(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeDaVinci(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeNl3(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeMl1Chain(RECOIL *self, X68KPicStream *stream, int pixelsOffset, int rgb);
+
+static bool RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream);
+
+static bool RECOIL_DecodeMl1(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeMx1(RECOIL *self, uint8_t const *content, int contentLength);
 
 static int RECOIL_UnpackZim(uint8_t const *content, int contentOffset, int end, uint8_t const *flags, uint8_t *unpacked, int unpackedLength);
 
@@ -1474,6 +1556,8 @@ static bool RECOIL_DecodeP4i(RECOIL *self, uint8_t const *content, int contentLe
 static bool RECOIL_Decode64c(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeG(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeCle(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_Decode4bt(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -1568,6 +1652,8 @@ static bool RECOIL_DecodePet(RECOIL *self, uint8_t const *content, int contentLe
 static bool RECOIL_DecodeScrCol(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeFpr(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeCtm(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeDoo(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -1793,7 +1879,7 @@ static bool RECOIL_DecodeFalconPix(RECOIL *self, uint8_t const *content, int con
 
 static bool RECOIL_DecodePntUnpacked(RECOIL *self, uint8_t const *content, uint8_t const *bitmap, int bitmapOffset, int width, int height);
 
-static bool RECOIL_DecodePnt(RECOIL *self, uint8_t const *content, int contentLength);
+static bool RECOIL_DecodeFalconPnt(RECOIL *self, uint8_t const *content, int contentLength);
 
 static void RECOIL_SetOcsColor(RECOIL *self, int c, int r, int gb);
 
@@ -1897,7 +1983,7 @@ static void RECOIL_DecodeAtari8Gr1Line(const RECOIL *self, uint8_t const *conten
 
 static void RECOIL_DecodeAtari8Gr12Line(const RECOIL *self, uint8_t const *characters, int charactersOffset, uint8_t const *font, int fontOffset, uint8_t *frame, int frameOffset, int doubleLine);
 
-static void RECOIL_DecodeAtari8Player(const RECOIL *self, uint8_t const *content, int contentOffset, int color, uint8_t *frame, int frameOffset, int height);
+static void RECOIL_DecodeAtari8Player(const RECOIL *self, uint8_t const *content, int contentOffset, int color, uint8_t *frame, int frameOffset, int height, bool multi);
 
 static bool RECOIL_ApplyAtari8Palette(RECOIL *self, uint8_t const *frame);
 
@@ -1980,6 +2066,12 @@ static bool RECOIL_Decode4pl(RECOIL *self, uint8_t const *content, int contentLe
 static bool RECOIL_Decode4mi(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_Decode4pm(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeAtari8Spr(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeMsl(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeMpl(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeLdm(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -2091,6 +2183,10 @@ static bool RECOIL_DecodeSif(RECOIL *self, uint8_t const *content, int contentLe
 
 static bool RECOIL_DecodeDlm(RECOIL *self, uint8_t const *content, int contentLength);
 
+static void RECOIL_DecodeAtari8Gr0Screen(RECOIL *self, uint8_t const *content, uint8_t const *font);
+
+static bool RECOIL_DecodeGr0(RECOIL *self, uint8_t const *content, int contentLength);
+
 static bool RECOIL_DecodeSge(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeAsciiArtEditor(RECOIL *self, uint8_t const *content, int contentLength);
@@ -2178,6 +2274,8 @@ static bool RECOIL_DecodeEpa(RECOIL *self, uint8_t const *content, int contentLe
 static bool RECOIL_DecodeElectronika(RECOIL *self, uint8_t const *content);
 
 static bool RECOIL_DecodePic(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeScr(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
 
 static int RECOIL_GetPackedExt(const char *filename);
 
@@ -2539,7 +2637,7 @@ static bool Stream_SkipUntilByte(Stream *self, int expected)
 	}
 }
 
-bool Stream_ReadBytes(Stream *self, uint8_t *dest, int destOffset, int count)
+static bool Stream_ReadBytes(Stream *self, uint8_t *dest, int destOffset, int count)
 {
 	int nextOffset = self->contentOffset + count;
 	if (nextOffset > self->contentLength)
@@ -2619,9 +2717,7 @@ static bool DaliStream_Decode(DaliStream *self, int countLength, RECOIL *recoil,
 
 static int ZxpStream_ReadChar(ZxpStream *self)
 {
-	if (self->base.contentOffset >= self->base.contentLength)
-		return -1;
-	int c = self->base.content[self->base.contentOffset++];
+	int c = Stream_ReadByte(&self->base);
 	if (c == 13 && self->base.contentOffset < self->base.contentLength && self->base.content[self->base.contentOffset] == 10) {
 		self->base.contentOffset++;
 		return 10;
@@ -2677,6 +2773,10 @@ static int SprStream_ReadInt(SprStream *self)
 
 static void BitStream_Construct(BitStream *self)
 {
+	static const BitStreamVtbl vtbl = {
+		BitStream_ReadBit,
+	};
+	self->vtbl = &vtbl;
 	self->bits = 0;
 }
 
@@ -2696,12 +2796,39 @@ static int BitStream_ReadBits(BitStream *self, int count)
 {
 	int result = 0;
 	while (--count >= 0) {
-		int bit = BitStream_ReadBit(self);
+		int bit = self->vtbl->readBit(self);
 		if (bit < 0)
 			return -1;
 		result = result << 1 | bit;
 	}
 	return result;
+}
+
+static int BitStream_ReadNl3Char(BitStream *self, bool skipSpace)
+{
+	int e;
+	do
+		e = Stream_ReadByte(&self->base);
+	while (e == 13 || e == 10 || (skipSpace && e == 32));
+	if (e != 239)
+		return e;
+	if (self->base.contentOffset + 1 >= self->base.contentLength)
+		return -1;
+	switch (self->base.content[self->base.contentOffset++]) {
+	case 189:
+		e = self->base.content[self->base.contentOffset++];
+		if (e >= 160 && e <= 191)
+			return e;
+		break;
+	case 190:
+		e = self->base.content[self->base.contentOffset++];
+		if (e >= 128 && e <= 159)
+			return e + 64;
+		break;
+	default:
+		break;
+	}
+	return -1;
 }
 
 static void X68KPicStream_Construct(X68KPicStream *self)
@@ -2712,7 +2839,7 @@ static void X68KPicStream_Construct(X68KPicStream *self)
 static int X68KPicStream_ReadLength(X68KPicStream *self)
 {
 	for (int bits = 1; bits < 21; bits++) {
-		switch (BitStream_ReadBit(&self->base)) {
+		switch (self->base.vtbl->readBit(&self->base)) {
 		case 0:
 			;
 			int length = BitStream_ReadBits(&self->base, bits);
@@ -2726,6 +2853,38 @@ static int X68KPicStream_ReadLength(X68KPicStream *self)
 		}
 	}
 	return -1;
+}
+
+static void Mx1Stream_Construct(Mx1Stream *self)
+{
+	X68KPicStream_Construct(&self->base);
+	static const BitStreamVtbl vtbl = {
+		(int (*)(BitStream *self)) Mx1Stream_ReadBit,
+	};
+	self->base.base.vtbl = &vtbl;
+	int d = 0;
+	for (int e = 0; e < 256; e++) {
+		if ((e >= 33 && e <= 126 && e != 34 && e != 39 && e != 44 && e != 64 && e != 92 && e != 96) || (e >= 161 && e <= 200))
+			self->decodeTable[e] = (uint8_t) d++;
+		else
+			self->decodeTable[e] = 128;
+	}
+}
+
+static int Mx1Stream_ReadBit(Mx1Stream *self)
+{
+	if ((self->base.base.bits & 63) == 0) {
+		int e = BitStream_ReadNl3Char(&self->base.base, true);
+		if (e < 0)
+			return -1;
+		int d = self->decodeTable[e];
+		if (d >= 128)
+			return -1;
+		self->base.base.bits = d << 1 | 1;
+	}
+	else
+		self->base.base.bits <<= 1;
+	return self->base.base.bits >> 7 & 1;
 }
 
 static void MppPaletteStream_Construct(MppPaletteStream *self)
@@ -2761,9 +2920,10 @@ static void ArtPalette_Construct(ArtPalette *self)
 {
 	MultiPalette_Construct(&self->base);
 	static const MultiPaletteVtbl vtbl = {
+		BitStream_ReadBit,
 		(void (*)(MultiPalette *self, RECOIL *recoil, int y)) ArtPalette_SetLinePalette,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static void ArtPalette_SetLinePalette(ArtPalette *self, RECOIL *recoil, int y)
@@ -2776,9 +2936,10 @@ static void RastPalette_Construct(RastPalette *self)
 {
 	MultiPalette_Construct(&self->base);
 	static const MultiPaletteVtbl vtbl = {
+		BitStream_ReadBit,
 		(void (*)(MultiPalette *self, RECOIL *recoil, int y)) RastPalette_SetLinePalette,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static void RastPalette_SetLinePalette(RastPalette *self, RECOIL *recoil, int y)
@@ -2796,9 +2957,10 @@ static void HblPalette_Construct(HblPalette *self)
 {
 	MultiPalette_Construct(&self->base);
 	static const MultiPaletteVtbl vtbl = {
+		BitStream_ReadBit,
 		(void (*)(MultiPalette *self, RECOIL *recoil, int y)) HblPalette_SetLinePalette,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static bool HblPalette_HasPalette(const HblPalette *self, int row)
@@ -2835,9 +2997,10 @@ static void CtblPalette_Construct(CtblPalette *self)
 {
 	MultiPalette_Construct(&self->base);
 	static const MultiPaletteVtbl vtbl = {
+		BitStream_ReadBit,
 		(void (*)(MultiPalette *self, RECOIL *recoil, int y)) CtblPalette_SetLinePalette,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static void CtblPalette_SetLinePalette(CtblPalette *self, RECOIL *recoil, int y)
@@ -2849,9 +3012,10 @@ static void ShamLacePalette_Construct(ShamLacePalette *self)
 {
 	MultiPalette_Construct(&self->base);
 	static const MultiPaletteVtbl vtbl = {
+		BitStream_ReadBit,
 		(void (*)(MultiPalette *self, RECOIL *recoil, int y)) ShamLacePalette_SetLinePalette,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static void ShamLacePalette_SetLinePalette(ShamLacePalette *self, RECOIL *recoil, int y)
@@ -2863,16 +3027,17 @@ static void PchgPalette_Construct(PchgPalette *self)
 {
 	MultiPalette_Construct(&self->base);
 	static const MultiPaletteVtbl vtbl = {
+		BitStream_ReadBit,
 		(void (*)(MultiPalette *self, RECOIL *recoil, int y)) PchgPalette_SetLinePalette,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static int PchgPalette_ReadHuffman(PchgPalette *self)
 {
 	int offset = self->treeLastOffset;
 	for (;;) {
-		switch (BitStream_ReadBit(&self->base.base)) {
+		switch (self->base.base.vtbl->readBit(&self->base.base)) {
 		case 0:
 			offset -= 2;
 			if (offset < self->treeOffset)
@@ -3016,13 +3181,13 @@ static int RleStream_ReadValue(RleStream *self)
 static int RleStream_ReadRle(RleStream *self)
 {
 	while (self->repeatCount == 0) {
-		if (!self->vtbl->readCommand(self))
+		if (!((const RleStreamVtbl *) self->base.vtbl)->readCommand(self))
 			return -1;
 	}
 	self->repeatCount--;
 	if (self->repeatValue >= 0)
 		return self->repeatValue;
-	return self->vtbl->readValue(self);
+	return ((const RleStreamVtbl *) self->base.vtbl)->readValue(self);
 }
 
 static bool RleStream_Unpack(RleStream *self, uint8_t *unpacked, int unpackedOffset, int unpackedStride, int unpackedEnd)
@@ -3071,13 +3236,14 @@ static void BldStream_Construct(BldStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) BldStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool BldStream_ReadCommand(BldStream *self)
+static bool BldStream_ReadCommand(BldStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3094,38 +3260,71 @@ bool BldStream_ReadCommand(BldStream *self)
 	return true;
 }
 
+static void DaVinciStream_Construct(DaVinciStream *self)
+{
+	RleStream_Construct(&self->base);
+	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
+		(bool (*)(RleStream *self)) DaVinciStream_ReadCommand,
+		(int (*)(RleStream *self)) DaVinciStream_ReadValue,
+	};
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
+}
+
+static int DaVinciStream_ReadValue(DaVinciStream *self)
+{
+	if (self->base.base.base.contentOffset + 3 > self->base.base.base.contentLength)
+		return -1;
+	self->base.base.base.contentOffset += 3;
+	return self->base.base.base.content[self->base.base.base.contentOffset - 2] << 16 | self->base.base.base.content[self->base.base.base.contentOffset - 1] << 8 | self->base.base.base.content[self->base.base.base.contentOffset - 3];
+}
+
+static bool DaVinciStream_ReadCommand(DaVinciStream *self)
+{
+	int b = Stream_ReadByte(&self->base.base.base);
+	if (b < 0)
+		return false;
+	if (b >= 128) {
+		self->base.repeatValue = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
+		b &= 127;
+	}
+	else
+		self->base.repeatValue = -1;
+	self->base.repeatCount = b;
+	return true;
+}
+
 static void BbgStream_Construct(BbgStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) BbgStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static int BbgStream_ReadBitsReverse(BbgStream *self, int count)
 {
 	int result = 0;
 	for (int i = 0; i < count; i++) {
-		switch (BitStream_ReadBit(&self->base.base)) {
-		case -1:
-			return -1;
+		switch (self->base.base.vtbl->readBit(&self->base.base)) {
+		case 0:
+			break;
 		case 1:
 			result |= 1 << i;
 			break;
-		case 0:
-			break;
+		default:
+			return -1;
 		}
 	}
 	return result;
 }
 
-bool BbgStream_ReadCommand(BbgStream *self)
+static bool BbgStream_ReadCommand(BbgStream *self)
 {
-	switch (BitStream_ReadBit(&self->base.base)) {
-	case -1:
-		return false;
+	switch (self->base.base.vtbl->readBit(&self->base.base)) {
 	case 0:
 		self->base.repeatCount = 1;
 		break;
@@ -3134,6 +3333,8 @@ bool BbgStream_ReadCommand(BbgStream *self)
 		if (self->base.repeatCount <= 0)
 			return false;
 		break;
+	default:
+		return false;
 	}
 	self->base.repeatValue = BbgStream_ReadBitsReverse(self, self->valueBits);
 	return true;
@@ -3143,13 +3344,14 @@ static void MspStream_Construct(MspStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) MspStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool MspStream_ReadCommand(MspStream *self)
+static bool MspStream_ReadCommand(MspStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3169,13 +3371,14 @@ static void C64KoalaStream_Construct(C64KoalaStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) C64KoalaStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool C64KoalaStream_ReadCommand(C64KoalaStream *self)
+static bool C64KoalaStream_ReadCommand(C64KoalaStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3195,13 +3398,14 @@ static void GoDotStream_Construct(GoDotStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) GoDotStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool GoDotStream_ReadCommand(GoDotStream *self)
+static bool GoDotStream_ReadCommand(GoDotStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3223,13 +3427,14 @@ static void CmpStream_Construct(CmpStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) CmpStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool CmpStream_ReadCommand(CmpStream *self)
+static bool CmpStream_ReadCommand(CmpStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b == self->escape) {
@@ -3250,13 +3455,14 @@ static void DrpStream_Construct(DrpStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) DrpStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool DrpStream_ReadCommand(DrpStream *self)
+static bool DrpStream_ReadCommand(DrpStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3294,13 +3500,14 @@ static void HpmStream_Construct(HpmStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) HpmStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool HpmStream_ReadCommand(HpmStream *self)
+static bool HpmStream_ReadCommand(HpmStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3320,13 +3527,14 @@ static void PgcStream_Construct(PgcStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) PgcStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool PgcStream_ReadCommand(PgcStream *self)
+static bool PgcStream_ReadCommand(PgcStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3346,13 +3554,14 @@ static void ScStream_Construct(ScStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) ScStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool ScStream_ReadCommand(ScStream *self)
+static bool ScStream_ReadCommand(ScStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3372,13 +3581,14 @@ static void CciStream_Construct(CciStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) CciStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool CciStream_ReadCommand(CciStream *self)
+static bool CciStream_ReadCommand(CciStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3409,13 +3619,14 @@ static void PackBitsStream_Construct(PackBitsStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) PackBitsStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool PackBitsStream_ReadCommand(PackBitsStream *self)
+static bool PackBitsStream_ReadCommand(PackBitsStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3426,7 +3637,7 @@ bool PackBitsStream_ReadCommand(PackBitsStream *self)
 	}
 	else {
 		self->base.repeatCount = 257 - b;
-		self->base.repeatValue = self->base.vtbl->readValue(&self->base);
+		self->base.repeatValue = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
 	}
 	return true;
 }
@@ -3461,13 +3672,14 @@ static void SpcStream_Construct(SpcStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) SpcStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool SpcStream_ReadCommand(SpcStream *self)
+static bool SpcStream_ReadCommand(SpcStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3487,13 +3699,14 @@ static void SpsStream_Construct(SpsStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) SpsStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool SpsStream_ReadCommand(SpsStream *self)
+static bool SpsStream_ReadCommand(SpsStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3513,13 +3726,14 @@ static void SrStream_Construct(SrStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) SrStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool SrStream_ReadCommand(SrStream *self)
+static bool SrStream_ReadCommand(SrStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	switch (b) {
@@ -3560,13 +3774,14 @@ static void PacStream_Construct(PacStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) PacStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool PacStream_ReadCommand(PacStream *self)
+static bool PacStream_ReadCommand(PacStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3598,13 +3813,14 @@ static void XlpStream_Construct(XlpStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) XlpStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool XlpStream_ReadCommand(XlpStream *self)
+static bool XlpStream_ReadCommand(XlpStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3631,13 +3847,14 @@ static void AmstradStream_Construct(AmstradStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) AmstradStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool AmstradStream_ReadCommand(AmstradStream *self)
+static bool AmstradStream_ReadCommand(AmstradStream *self)
 {
 	while (self->blockLength <= 0) {
 		if (Stream_ReadByte(&self->base.base.base) != 77 || Stream_ReadByte(&self->base.base.base) != 74 || Stream_ReadByte(&self->base.base.base) != 72)
@@ -3682,13 +3899,14 @@ static void CpiStream_Construct(CpiStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) CpiStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool CpiStream_ReadCommand(CpiStream *self)
+static bool CpiStream_ReadCommand(CpiStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3707,13 +3925,14 @@ static void XeKoalaStream_Construct(XeKoalaStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) XeKoalaStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool XeKoalaStream_ReadCommand(XeKoalaStream *self)
+static bool XeKoalaStream_ReadCommand(XeKoalaStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3776,10 +3995,11 @@ static void ImgStream_Construct(ImgStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) ImgStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 	self->patternRepeatCount = 0;
 }
 
@@ -3792,7 +4012,7 @@ static int ImgStream_GetLineRepeatCount(ImgStream *self)
 	return 1;
 }
 
-bool ImgStream_ReadCommand(ImgStream *self)
+static bool ImgStream_ReadCommand(ImgStream *self)
 {
 	if (self->patternRepeatCount > 1) {
 		self->patternRepeatCount--;
@@ -3839,13 +4059,14 @@ static void CaStream_Construct(CaStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) CaStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool CaStream_ReadCommand(CaStream *self)
+static bool CaStream_ReadCommand(CaStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3941,10 +4162,11 @@ static void RgbStream_Construct(RgbStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) RgbStream_ReadCommand,
 		(int (*)(RleStream *self)) RgbStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static int RgbStream_ReadValue(RgbStream *self)
@@ -3952,7 +4174,7 @@ static int RgbStream_ReadValue(RgbStream *self)
 	return BitStream_ReadBits(&self->base.base, 12);
 }
 
-bool RgbStream_ReadCommand(RgbStream *self)
+static bool RgbStream_ReadCommand(RgbStream *self)
 {
 	int b = BitStream_ReadBits(&self->base.base, 4);
 	if (b < 0)
@@ -3971,7 +4193,7 @@ bool RgbStream_ReadCommand(RgbStream *self)
 		b += 7;
 	}
 	if (rle) {
-		self->base.repeatValue = self->base.vtbl->readValue(&self->base);
+		self->base.repeatValue = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
 		b++;
 	}
 	else
@@ -3985,7 +4207,7 @@ static void TnyPcsStream_Construct(TnyPcsStream *self)
 	RleStream_Construct(&self->base);
 }
 
-bool TnyPcsStream_ReadTnyCommand(TnyPcsStream *self)
+static bool TnyPcsStream_ReadTnyCommand(TnyPcsStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -3999,7 +4221,7 @@ bool TnyPcsStream_ReadTnyCommand(TnyPcsStream *self)
 		}
 		else
 			self->base.repeatCount = b;
-		self->base.repeatValue = b == 1 ? -1 : self->base.vtbl->readValue(&self->base);
+		self->base.repeatValue = b == 1 ? -1 : ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
 	}
 	else {
 		self->base.repeatCount = 256 - b;
@@ -4012,13 +4234,14 @@ static void TnyStream_Construct(TnyStream *self)
 {
 	TnyPcsStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) TnyStream_ReadCommand,
 		(int (*)(RleStream *self)) TnyStream_ReadValue,
 	};
-	self->base.base.vtbl = &vtbl;
+	self->base.base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool TnyStream_ReadCommand(TnyStream *self)
+static bool TnyStream_ReadCommand(TnyStream *self)
 {
 	return TnyPcsStream_ReadTnyCommand(&self->base);
 }
@@ -4036,13 +4259,14 @@ static void PcsStream_Construct(PcsStream *self)
 {
 	TnyPcsStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) PcsStream_ReadCommand,
 		(int (*)(RleStream *self)) PcsStream_ReadValue,
 	};
-	self->base.base.vtbl = &vtbl;
+	self->base.base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool PcsStream_ReadCommand(PcsStream *self)
+static bool PcsStream_ReadCommand(PcsStream *self)
 {
 	if (self->commandCount <= 0)
 		return false;
@@ -4092,7 +4316,7 @@ static bool PcsStream_UnpackPcs(PcsStream *self, uint8_t *unpacked)
 		if (b < 0)
 			return false;
 		unpacked[unpackedOffset] = (uint8_t) (b >> 8);
-		unpacked[unpackedOffset + 1] = (uint8_t) (b & 255);
+		unpacked[unpackedOffset + 1] = (uint8_t) b;
 	}
 	return PcsStream_EndBlock(self);
 }
@@ -4101,26 +4325,27 @@ static void VdatStream_Construct(VdatStream *self)
 {
 	TnyStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) VdatStream_ReadCommand,
 		(int (*)(RleStream *self)) TnyStream_ReadValue,
 	};
-	self->base.base.base.vtbl = &vtbl;
+	self->base.base.base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
-bool VdatStream_ReadCommand(VdatStream *self)
+static bool VdatStream_ReadCommand(VdatStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base.base.base);
 	if (b < 0)
 		return false;
 	if (b < 128) {
 		if (b == 0 || b == 1) {
-			self->base.base.base.repeatCount = self->base.base.base.vtbl->readValue(&self->base.base.base);
+			self->base.base.base.repeatCount = ((const RleStreamVtbl *) self->base.base.base.base.vtbl)->readValue(&self->base.base.base);
 			if (self->base.base.base.repeatCount < 0)
 				return false;
 		}
 		else
 			self->base.base.base.repeatCount = b;
-		self->base.base.base.repeatValue = b == 0 ? -1 : self->base.base.base.vtbl->readValue(&self->base.base.base);
+		self->base.base.base.repeatValue = b == 0 ? -1 : ((const RleStreamVtbl *) self->base.base.base.base.vtbl)->readValue(&self->base.base.base);
 	}
 	else {
 		self->base.base.base.repeatCount = 256 - b;
@@ -4133,10 +4358,11 @@ static void HimStream_Construct(HimStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) HimStream_ReadCommand,
 		(int (*)(RleStream *self)) HimStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static int HimStream_ReadValue(HimStream *self)
@@ -4146,17 +4372,17 @@ static int HimStream_ReadValue(HimStream *self)
 	return self->base.base.base.content[self->base.base.base.contentOffset--];
 }
 
-bool HimStream_ReadCommand(HimStream *self)
+static bool HimStream_ReadCommand(HimStream *self)
 {
-	int b = self->base.vtbl->readValue(&self->base);
+	int b = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
 	switch (b) {
 	case -1:
 		return false;
 	case 0:
-		self->base.repeatCount = self->base.vtbl->readValue(&self->base);
+		self->base.repeatCount = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
 		if (self->base.repeatCount <= 0)
 			return false;
-		self->base.repeatValue = self->base.vtbl->readValue(&self->base);
+		self->base.repeatValue = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
 		return true;
 	default:
 		self->base.repeatCount = b - 1;
@@ -4169,10 +4395,11 @@ static void IcStream_Construct(IcStream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) IcStream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static bool IcStream_ReadCount(IcStream *self)
@@ -4187,7 +4414,7 @@ static bool IcStream_ReadCount(IcStream *self)
 	return true;
 }
 
-bool IcStream_ReadCommand(IcStream *self)
+static bool IcStream_ReadCommand(IcStream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	int escape = self->base.base.base.content[66];
@@ -4250,10 +4477,11 @@ static void DeepStream_Construct(DeepStream *self)
 {
 	PackBitsStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) PackBitsStream_ReadCommand,
 		(int (*)(RleStream *self)) DeepStream_ReadValue,
 	};
-	self->base.base.vtbl = &vtbl;
+	self->base.base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 	self->components = 0;
 }
 
@@ -4355,6 +4583,28 @@ static bool DeepStream_ReadDeltaLine(DeepStream *self, int width, int tvdcOffset
 	return true;
 }
 
+static void PackBytesStream_Construct(PackBytesStream *self)
+{
+	self->count = 1;
+}
+
+static int PackBytesStream_ReadUnpacked(PackBytesStream *self)
+{
+	if (--self->count == 0) {
+		if (self->base.contentOffset >= self->base.contentLength)
+			return -1;
+		int b = self->base.content[self->base.contentOffset++];
+		self->count = (b & 63) + 1;
+		if (b >= 128)
+			self->count <<= 2;
+		static const uint8_t PATTERNS[4] = { 0, 1, 4, 1 };
+		self->pattern = PATTERNS[b >> 6];
+	}
+	else if ((self->count & (self->pattern - 1)) == 0)
+		self->base.contentOffset -= self->pattern;
+	return Stream_ReadByte(&self->base);
+}
+
 static bool Lz4Stream_Copy(Lz4Stream *self, int count)
 {
 	if (self->unpackedOffset + count > self->unpackedLength || !Stream_ReadBytes(&self->base, self->unpacked, self->unpackedOffset, count))
@@ -4382,14 +4632,15 @@ static void Tre1Stream_Construct(Tre1Stream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) Tre1Stream_ReadCommand,
 		(int (*)(RleStream *self)) Tre1Stream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 	self->lastRgb = -1;
 }
 
-bool Tre1Stream_ReadCommand(Tre1Stream *self)
+static bool Tre1Stream_ReadCommand(Tre1Stream *self)
 {
 	self->base.repeatCount = Stream_ReadByte(&self->base.base.base);
 	if (self->base.repeatCount <= 0)
@@ -4412,6 +4663,52 @@ static int Tre1Stream_ReadValue(Tre1Stream *self)
 	self->lastRgb = RECOIL_GetFalconTrueColor(self->base.base.base.content, self->base.base.base.contentOffset);
 	self->base.base.base.contentOffset += 2;
 	return self->lastRgb;
+}
+
+static void Nl3Stream_Construct(Nl3Stream *self)
+{
+	RleStream_Construct(&self->base);
+	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
+		(bool (*)(RleStream *self)) Nl3Stream_ReadCommand,
+		(int (*)(RleStream *self)) Nl3Stream_ReadValue,
+	};
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
+}
+
+static int Nl3Stream_ReadValue(Nl3Stream *self)
+{
+	int e = BitStream_ReadNl3Char(&self->base.base, false);
+	if (e < 32)
+		return -1;
+	if (e < 127)
+		return e - 32;
+	if (e < 160)
+		return -1;
+	if (e < 224)
+		return e - 65;
+	if (e == 253)
+		return 159;
+	if (e == 254)
+		return 160;
+	return -1;
+}
+
+static bool Nl3Stream_ReadCommand(Nl3Stream *self)
+{
+	int b = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
+	if (b < 0 || b > 127)
+		return false;
+	self->base.repeatValue = b & 63;
+	if (b < 64)
+		self->base.repeatCount = 1;
+	else {
+		b = ((const RleStreamVtbl *) self->base.base.vtbl)->readValue(&self->base);
+		if (b < 0)
+			return false;
+		self->base.repeatCount = b + 2;
+	}
+	return true;
 }
 
 static void SfdnStream_Construct(SfdnStream *self)
@@ -4438,13 +4735,13 @@ static bool SfdnStream_Unpack(SfdnStream *self, uint8_t *unpacked, int unpackedL
 		int code;
 		int bit;
 		for (code = 0;; code += 2) {
-			bit = BitStream_ReadBit(&self->base);
+			bit = self->base.vtbl->readBit(&self->base);
 			if (bit == 0)
 				break;
 			if (bit < 0 || code >= 14)
 				return false;
 		}
-		bit = BitStream_ReadBit(&self->base);
+		bit = self->base.vtbl->readBit(&self->base);
 		if (bit < 0)
 			return false;
 		code += bit;
@@ -4460,7 +4757,7 @@ static void G9bStream_Construct(G9bStream *self)
 static int G9bStream_ReadLength(G9bStream *self)
 {
 	for (int length = 1; length < 65536;) {
-		switch (BitStream_ReadBit(&self->base)) {
+		switch (self->base.vtbl->readBit(&self->base)) {
 		case 0:
 			return length + 1;
 		case 1:
@@ -4469,7 +4766,7 @@ static int G9bStream_ReadLength(G9bStream *self)
 			return -1;
 		}
 		length <<= 1;
-		switch (BitStream_ReadBit(&self->base)) {
+		switch (self->base.vtbl->readBit(&self->base)) {
 		case 0:
 			break;
 		case 1:
@@ -4487,7 +4784,7 @@ static bool G9bStream_Unpack(G9bStream *self, uint8_t *unpacked, int headerLengt
 	self->base.base.contentOffset = headerLength + 3;
 	for (int unpackedOffset = headerLength; unpackedOffset < unpackedLength;) {
 		int b;
-		switch (BitStream_ReadBit(&self->base)) {
+		switch (self->base.vtbl->readBit(&self->base)) {
 		case 0:
 			b = Stream_ReadByte(&self->base.base);
 			if (b < 0)
@@ -4538,7 +4835,7 @@ static int MigStream_Unpack(MigStream *self, uint8_t *unpacked)
 {
 	self->base.base.contentOffset = 15;
 	for (int unpackedOffset = 0; unpackedOffset < 108800;) {
-		int c = BitStream_ReadBit(&self->base);
+		int c = self->base.vtbl->readBit(&self->base);
 		if (c < 0)
 			return -1;
 		int b = Stream_ReadByte(&self->base.base);
@@ -4558,7 +4855,7 @@ static int MigStream_Unpack(MigStream *self, uint8_t *unpacked)
 				return -1;
 			c = -1;
 			do {
-				b = BitStream_ReadBit(&self->base);
+				b = self->base.vtbl->readBit(&self->base);
 				if (b < 0)
 					return -1;
 				c++;
@@ -4595,7 +4892,7 @@ static int Ice21Stream_GetUnpackedLength(const Ice21Stream *self)
 	return RECOIL_Get32BigEndian(self->content, self->contentStart + 8);
 }
 
-int Ice21Stream_ReadBit(Ice21Stream *self)
+static int Ice21Stream_ReadBit(Ice21Stream *self)
 {
 	int b = self->bits;
 	int next = b & 2147483647;
@@ -4611,7 +4908,7 @@ int Ice21Stream_ReadBit(Ice21Stream *self)
 	return b >> 31 & 1;
 }
 
-int Ice21Stream_ReadBits(Ice21Stream *self, int count)
+static int Ice21Stream_ReadBits(Ice21Stream *self, int count)
 {
 	int result = 0;
 	while (--count >= 0) {
@@ -4793,10 +5090,11 @@ static void Q4Stream_Construct(Q4Stream *self)
 {
 	RleStream_Construct(&self->base);
 	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
 		(bool (*)(RleStream *self)) Q4Stream_ReadCommand,
 		RleStream_ReadValue,
 	};
-	self->base.vtbl = &vtbl;
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
 }
 
 static int Q4Stream_StartChunk(Q4Stream *self)
@@ -4811,13 +5109,20 @@ static int Q4Stream_StartChunk(Q4Stream *self)
 
 static int Q4Stream_ReadCode(Q4Stream *self)
 {
-	for (;;) {
+	do {
 		int value = BitStream_ReadBits(&self->base.base, self->codeBits);
-		if (value >= 2)
-			return value - 2;
-		if (value <= 0 || ++self->codeBits > 15)
+		switch (value) {
+		case -1:
+		case 0:
 			return -1;
+		case 1:
+			break;
+		default:
+			return value - 2;
+		}
 	}
+	while (++self->codeBits <= 15);
+	return -1;
 }
 
 static bool Q4Stream_UnpackQ4(Q4Stream *self)
@@ -4854,7 +5159,7 @@ static bool Q4Stream_UnpackQ4(Q4Stream *self)
 	return false;
 }
 
-bool Q4Stream_ReadCommand(Q4Stream *self)
+static bool Q4Stream_ReadCommand(Q4Stream *self)
 {
 	int b = Stream_ReadByte(&self->base.base.base);
 	if (b < 0)
@@ -4896,7 +5201,7 @@ static void PiStream_Destruct(PiStream *self)
 static int PiStream_ReadInt(PiStream *self, int bits, int maxBits)
 {
 	for (; bits < maxBits; bits++) {
-		int b = BitStream_ReadBit(&self->base);
+		int b = self->base.vtbl->readBit(&self->base);
 		if (b == 0)
 			break;
 		if (b < 0)
@@ -4908,9 +5213,9 @@ static int PiStream_ReadInt(PiStream *self, int bits, int maxBits)
 static bool PiStream_UnpackLiteral(PiStream *self, int indexesOffset, int depth)
 {
 	int offset;
-	switch (BitStream_ReadBit(&self->base)) {
+	switch (self->base.vtbl->readBit(&self->base)) {
 	case 1:
-		offset = BitStream_ReadBit(&self->base);
+		offset = self->base.vtbl->readBit(&self->base);
 		break;
 	case 0:
 		offset = PiStream_ReadInt(self, 1, depth - 1);
@@ -4942,7 +5247,7 @@ static int PiStream_ReadPosition(PiStream *self)
 	int position = BitStream_ReadBits(&self->base, 2);
 	if (position != 3)
 		return position;
-	position = BitStream_ReadBit(&self->base);
+	position = self->base.vtbl->readBit(&self->base);
 	if (position < 0)
 		return -1;
 	return 3 + position;
@@ -4955,7 +5260,7 @@ static bool PiStream_Unpack(PiStream *self, int width, int height, int depth)
 		for (int j = 0; j < colors; j++)
 			self->recentColors[i << 8 | j] = (uint8_t) ((i - j) & (colors - 1));
 	int indexesLength = width * height;
-	CiShared_Assign((void **) &self->indexes, (uint8_t *) CiShared_Make(indexesLength, sizeof(uint8_t ), NULL, NULL));
+	CiShared_Assign((void **) &self->indexes, (uint8_t *) CiShared_Make(indexesLength, sizeof(uint8_t), NULL, NULL));
 	if (!PiStream_UnpackTwoLiterals(self, 0, indexesLength, depth))
 		return false;
 	int lastPosition = -1;
@@ -4969,7 +5274,7 @@ static bool PiStream_Unpack(PiStream *self, int width, int height, int depth)
 					return false;
 				indexesOffset += 2;
 			}
-			while (indexesOffset < indexesLength && BitStream_ReadBit(&self->base) == 1);
+			while (indexesOffset < indexesLength && self->base.vtbl->readBit(&self->base) == 1);
 			lastPosition = -1;
 		}
 		else {
@@ -4995,7 +5300,7 @@ static bool PiStream_Unpack(PiStream *self, int width, int height, int depth)
 				position = width + 1;
 				break;
 			default:
-				return false;
+				assert(false);
 			}
 			int copyEnd = indexesOffset + (length << 1);
 			if (copyEnd > indexesLength)
@@ -5066,8 +5371,6 @@ static bool A4rStream_UnpackA4r(A4rStream *self)
 	self->unpackedOffset = -1;
 	for (;;) {
 		switch (A4rStream_ReadFlag(self)) {
-		case -1:
-			return false;
 		case 0:
 			if (!A4rStream_CopyByte(self))
 				return false;
@@ -5105,6 +5408,8 @@ static bool A4rStream_UnpackA4r(A4rStream *self)
 				break;
 			}
 			break;
+		default:
+			return false;
 		}
 	}
 }
@@ -5129,7 +5434,7 @@ static int FanoTree_ReadCode(const FanoTree *self, BitStream *bitStream)
 	int code = 0;
 	int valuesOffset = self->count[0];
 	for (int bits = 1; bits < 16; bits++) {
-		int bit = BitStream_ReadBit(bitStream);
+		int bit = bitStream->vtbl->readBit(bitStream);
 		if (bit < 0)
 			return -1;
 		code = code << 1 | bit;
@@ -5144,14 +5449,14 @@ static int FanoTree_ReadCode(const FanoTree *self, BitStream *bitStream)
 
 static void RecentInts_Construct(RecentInts *self)
 {
-	for (int i = 0; i < 128; i++) {
-		self->value[i] = 0;
-		self->prev[i] = (uint8_t) (i + 1);
-		self->next[i] = (uint8_t) (i - 1);
+	for (int _i0 = 0; _i0 < 128; _i0++) {
+		self->value[_i0] = 0;
 	}
-	self->prev[127] = 0;
-	self->next[0] = 127;
 	self->head = 0;
+	for (int i = 0; i < 128; i++) {
+		self->prev[i] = (uint8_t) ((i + 1) & 127);
+		self->next[i] = (uint8_t) ((i - 1) & 127);
+	}
 }
 
 static void RecentInts_Add(RecentInts *self, int value)
@@ -5214,6 +5519,8 @@ static bool BlazingPaddlesBoundingBox_Calculate(BlazingPaddlesBoundingBox *self,
 			if (self->bottom < y)
 				self->bottom = y;
 			break;
+		default:
+			assert(false);
 		}
 	}
 	return false;
@@ -5582,7 +5889,7 @@ static int GtiaRenderer_GetPmg(GtiaRenderer *self, int hpos, int objects)
 		if ((self->playerShiftRegister[i] & 128) != 0 || ((self->prior & 16) == 0 && (self->missileShiftRegister & 2 << (i << 1)) != 0))
 			objects |= 1 << i;
 		if (--self->playerSizeCounter[i] == 0) {
-			self->playerShiftRegister[i] = (uint8_t) (self->playerShiftRegister[i] << 1 & 255);
+			self->playerShiftRegister[i] = (uint8_t) (self->playerShiftRegister[i] << 1);
 			self->playerSizeCounter[i] = self->playerSize[i];
 		}
 		if (--self->missileSizeCounter[i] == 0) {
@@ -5639,7 +5946,7 @@ static void GtiaRenderer_StartLine(GtiaRenderer *self, int startHpos)
 		GtiaRenderer_GetPmg(self, hpos, 0);
 }
 
-int GtiaRenderer_GetHiresColor(const GtiaRenderer *self, int c)
+static int GtiaRenderer_GetHiresColor(const GtiaRenderer *self, int c)
 {
 	return (c & 240) + (self->colors[5] & 14);
 }
@@ -5692,6 +5999,7 @@ static int GtiaRenderer_DrawSpan(GtiaRenderer *self, int y, int hpos, int untilH
 		default:
 			if ((objects & 15) != 0)
 				break;
+			assert(objects == 0 || objects == 128);
 			if (gtiaMode == 1)
 				c |= playfield;
 			else if (playfield == 0)
@@ -5721,7 +6029,7 @@ static void HcmRenderer_Construct(HcmRenderer *self)
 	self->base.vtbl = &vtbl;
 }
 
-int HcmRenderer_GetPlayfieldByte(HcmRenderer *self, int y, int column)
+static int HcmRenderer_GetPlayfieldByte(HcmRenderer *self, int y, int column)
 {
 	return self->base.content[2064 + (y << 5) + column];
 }
@@ -5735,7 +6043,7 @@ static void GedRenderer_Construct(GedRenderer *self)
 	self->base.vtbl = &vtbl;
 }
 
-int GedRenderer_GetPlayfieldByte(GedRenderer *self, int y, int column)
+static int GedRenderer_GetPlayfieldByte(GedRenderer *self, int y, int column)
 {
 	return self->base.content[3302 + y * 40 + column];
 }
@@ -5749,7 +6057,7 @@ static void PgrRenderer_Construct(PgrRenderer *self)
 	self->base.vtbl = &vtbl;
 }
 
-int PgrRenderer_GetPlayfieldByte(PgrRenderer *self, int y, int column)
+static int PgrRenderer_GetPlayfieldByte(PgrRenderer *self, int y, int column)
 {
 	return self->base.content[self->screenOffset + column];
 }
@@ -5763,7 +6071,7 @@ static void MchRenderer_Construct(MchRenderer *self)
 	self->base.vtbl = &vtbl;
 }
 
-int MchRenderer_GetPlayfieldByte(MchRenderer *self, int y, int column)
+static int MchRenderer_GetPlayfieldByte(MchRenderer *self, int y, int column)
 {
 	int offset = ((y >> 3) * self->base.playfieldColumns + column) * 9;
 	int shift = self->dliPlus && (y & 4) != 0 ? 2 : 1;
@@ -5779,12 +6087,12 @@ static void G2fRenderer_Construct(G2fRenderer *self)
 	self->base.vtbl = &vtbl;
 }
 
-int G2fRenderer_GetHiresColor(const G2fRenderer *self, int c)
+static int G2fRenderer_GetHiresColor(const G2fRenderer *self, int c)
 {
 	return self->vbxeOffset >= 0 ? self->base.colors[5] : (c & 240) + (self->base.colors[5] & 14);
 }
 
-int G2fRenderer_GetPlayfieldByte(G2fRenderer *self, int y, int column)
+static int G2fRenderer_GetPlayfieldByte(G2fRenderer *self, int y, int column)
 {
 	if (self->vbxeOffset >= 0) {
 		int colorOffset = self->vbxeOffset + 3 + ((24 - (self->base.playfieldColumns >> 1) + column) * 240 + y / self->base.content[self->vbxeOffset + 2]) * 12 + 2;
@@ -5819,7 +6127,7 @@ static bool G2fRenderer_SetSprite(uint8_t *hpos, uint8_t *sizes, int i, uint8_t 
 		return false;
 	}
 	sizes[i] = (uint8_t) value;
-	hpos[i] = (uint8_t) ((32 + content[spriteOffset]) & 255);
+	hpos[i] = (uint8_t) (32 + content[spriteOffset]);
 	return true;
 }
 
@@ -6112,6 +6420,7 @@ const char *RECOIL_GetPlatform(const RECOIL *self)
 	case RECOILResolution_APPLE_I_IE1X2:
 		return "Apple IIe";
 	case RECOILResolution_APPLE_I_I_G_S1X1:
+	case RECOILResolution_APPLE_I_I_G_S1X2:
 		return "Apple IIGS";
 	case RECOILResolution_MACINTOSH1X1:
 		return "Apple Macintosh";
@@ -6242,6 +6551,7 @@ int RECOIL_GetOriginalHeight(const RECOIL *self)
 	case RECOILResolution_AMIGA1X2:
 	case RECOILResolution_AMSTRAD1X2:
 	case RECOILResolution_APPLE_I_IE1X2:
+	case RECOILResolution_APPLE_I_I_G_S1X2:
 	case RECOILResolution_XE2X2:
 	case RECOILResolution_XE4X2:
 	case RECOILResolution_ST1X2:
@@ -6273,7 +6583,7 @@ int RECOIL_GetFrames(const RECOIL *self)
 
 static bool RECOIL_SetSize(RECOIL *self, int width, int height, RECOILResolution resolution)
 {
-	if (width <= 0 || width > 2560 || height <= 0 || height > 2560 || width * height > 2854278)
+	if (width <= 0 || width > 10000 || height <= 0 || height > 2560 || width * height > 2854278)
 		return false;
 	self->width = width;
 	self->height = height;
@@ -6368,6 +6678,7 @@ static void RECOIL_SetScaledPixel(RECOIL *self, int x, int y, int rgb)
 			self->pixels[offset + x] = rgb;
 		break;
 	case RECOILResolution_AMIGA1X2:
+	case RECOILResolution_APPLE_I_I_G_S1X2:
 	case RECOILResolution_ST1X2:
 	case RECOILResolution_STE1X2:
 	case RECOILResolution_PC801X2:
@@ -6436,7 +6747,7 @@ static bool RECOIL_ApplyBlend(RECOIL *self)
 	return true;
 }
 
-int RECOIL_ReadFile(const RECOIL *self, const char *filename, uint8_t *content, int contentLength)
+static int RECOIL_ReadFile(const RECOIL *self, const char *filename, uint8_t *content, int contentLength)
 {
 	return -1;
 }
@@ -6452,8 +6763,7 @@ static int RECOIL_ReadCompanionFile(const RECOIL *self, const char *baseFilename
 		else if (c == 46)
 			break;
 	}
-	char *filename = NULL;
-	CiString_Assign(&filename, CiString_Substring(baseFilename, i + 1));
+	char *filename = CiString_Substring(baseFilename, i + 1);
 	CiString_Append(&filename, lower ? lowerExt : upperExt);
 	int returnValue = self->vtbl->readFile(self, filename, content, contentLength);
 	free(filename);
@@ -6516,6 +6826,14 @@ static int RECOIL_GetG6R5B5Color(int c)
 	return c | (c >> 5 & 458759) | (c >> 6 & 768);
 }
 
+static int RECOIL_Get729Color(int c)
+{
+	int r = c / 81;
+	int g = c / 9 % 9;
+	int b = c % 9;
+	return r * 255 >> 3 << 16 | g * 255 >> 3 << 8 | b * 255 >> 3;
+}
+
 static int RECOIL_GetFalconTrueColor(uint8_t const *content, int contentOffset)
 {
 	int rg = content[contentOffset];
@@ -6556,7 +6874,7 @@ static void RECOIL_DecodeScaledBitplanes(RECOIL *self, uint8_t const *content, i
 	int contentStride = ((width + 15) >> 4 << 1) * bitplanes;
 	for (int y = 0; y < height; y++) {
 		if (multiPalette != NULL)
-			multiPalette->vtbl->setLinePalette(multiPalette, self, y);
+			((const MultiPaletteVtbl *) multiPalette->base.vtbl)->setLinePalette(multiPalette, self, y);
 		if (ehb) {
 			for (int c = 0; c < 32; c++)
 				self->contentPalette[32 + c] = self->contentPalette[c] >> 1 & 8355711;
@@ -7497,6 +7815,11 @@ static void RECOIL_SetUlaPlus(RECOIL *self, uint8_t const *content, int paletteO
 		self->contentPalette[i] = RECOIL_GetG3R3B2Color(content[paletteOffset + i]);
 }
 
+static int RECOIL_GetZxLineOffset(int y)
+{
+	return ((y & 192) << 5) + ((y & 7) << 8) + ((y & 56) << 2);
+}
+
 static void RECOIL_DecodeZx(RECOIL *self, uint8_t const *content, int bitmapOffset, int attributesOffset, int attributesMode, int pixelsOffset)
 {
 	for (int y = 0; y < 192; y++) {
@@ -7514,7 +7837,7 @@ static void RECOIL_DecodeZx(RECOIL *self, uint8_t const *content, int bitmapOffs
 				c = content[y << 5 | col] >> (~x & 7);
 				break;
 			default:
-				c = content[bitmapOffset + ((y & 192) << 5) + ((y & 7) << 8) + ((y & 56) << 2) + col] >> (~x & 7);
+				c = content[bitmapOffset + RECOIL_GetZxLineOffset(y) + col] >> (~x & 7);
 				break;
 			}
 			c &= 1;
@@ -7534,7 +7857,7 @@ static void RECOIL_DecodeZx(RECOIL *self, uint8_t const *content, int bitmapOffs
 						a = attributesOffset + (y >> 3 << 4) - 16;
 					break;
 				case -1:
-					a = attributesOffset + ((y & 192) << 5) + ((y & 7) << 8) + ((y & 56) << 2);
+					a = attributesOffset + RECOIL_GetZxLineOffset(y);
 					break;
 				default:
 					a = attributesOffset + (y >> attributesMode << 5);
@@ -7553,7 +7876,7 @@ static void RECOIL_DecodeTimexHires(RECOIL *self, uint8_t const *content, int co
 	int inkColor = RECOIL_GetZxColor(content[contentOffset + 12288] >> 3);
 	for (int y = 0; y < 192; y++) {
 		for (int x = 0; x < 512; x++) {
-			int c = content[contentOffset + (x & 8) * 768 + ((y & 192) << 5) + ((y & 7) << 8) + ((y & 56) << 2) + (x >> 4)] >> (~x & 7) & 1;
+			int c = content[contentOffset + (x & 8) * 768 + RECOIL_GetZxLineOffset(y) + (x >> 4)] >> (~x & 7) & 1;
 			int offset = pixelsOffset + (y << 10) + x;
 			self->pixels[offset + 512] = self->pixels[offset] = c == 0 ? inkColor ^ 16777215 : inkColor;
 		}
@@ -7568,41 +7891,6 @@ static bool RECOIL_DecodeHrg(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_DecodeTimexHires(self, content, 0, 0);
 	RECOIL_DecodeTimexHires(self, content, 12289, 196608);
 	return RECOIL_ApplyBlend(self);
-}
-
-static bool RECOIL_DecodeScr(RECOIL *self, const char *filename, uint8_t const *content, int contentLength)
-{
-	switch (contentLength) {
-	case 1002:
-		return RECOIL_DecodeScrCol(self, filename, content, contentLength);
-	case 6144:
-		RECOIL_SetZx(self, RECOILResolution_SPECTRUM1X1);
-		RECOIL_DecodeZx(self, content, 0, -1, -3, 0);
-		return true;
-	case 6912:
-	case 6913:
-		RECOIL_SetZx(self, RECOILResolution_SPECTRUM1X1);
-		RECOIL_DecodeZx(self, content, 0, 6144, 3, 0);
-		return true;
-	case 6976:
-		RECOIL_SetUlaPlus(self, content, 6912);
-		RECOIL_DecodeZx(self, content, 0, 6144, 3, 0);
-		return true;
-	case 12288:
-		RECOIL_SetZx(self, RECOILResolution_TIMEX1X1);
-		RECOIL_DecodeZx(self, content, 0, 6144, -1, 0);
-		return true;
-	case 12289:
-		RECOIL_SetSize(self, 512, 384, RECOILResolution_TIMEX1X2);
-		RECOIL_DecodeTimexHires(self, content, 0, 0);
-		return true;
-	case 12352:
-		RECOIL_SetUlaPlus(self, content, 12288);
-		RECOIL_DecodeZx(self, content, 0, 6144, -1, 0);
-		return true;
-	default:
-		return RECOIL_DecodeAmstradScr(self, filename, content, contentLength);
-	}
 }
 
 static bool RECOIL_DecodeZxIfl(RECOIL *self, uint8_t const *content, int contentLength)
@@ -7712,7 +8000,7 @@ static bool RECOIL_DecodeZxRgb3(RECOIL *self, uint8_t const *content, int conten
 	self->frames = 3;
 	for (int y = 0; y < 192; y++) {
 		for (int x = 0; x < 256; x++) {
-			int offset = (y & 192) << 5 | (y & 7) << 8 | (y & 56) << 2 | x >> 3;
+			int offset = RECOIL_GetZxLineOffset(y) + (x >> 3);
 			int c = 0;
 			for (int frame = 0; frame < 3; frame++) {
 				if ((content[frame * 6144 + offset] >> (~x & 7) & 1) != 0)
@@ -7842,9 +8130,8 @@ static bool RECOIL_DecodeBsc(RECOIL *self, uint8_t const *content, int contentLe
 				int a = 6144 + (bY >> 3 << 5) + col;
 				if (contentLength == 11904 && (bY & 4) != 0)
 					a += 768;
-				a = content[a];
-				c = a;
-				if ((content[((bY & 192) << 5) + ((bY & 7) << 8) + ((bY & 56) << 2) + col] >> (~x & 7) & 1) == 0)
+				c = a = content[a];
+				if ((content[RECOIL_GetZxLineOffset(bY) + col] >> (~x & 7) & 1) == 0)
 					c >>= 3;
 				c = RECOIL_GetZxColor(c);
 				if ((a & 64) == 0)
@@ -7907,6 +8194,92 @@ static bool RECOIL_DecodeChrd(RECOIL *self, uint8_t const *content, int contentL
 	}
 	if (frames == 2)
 		RECOIL_ApplyBlend(self);
+	return true;
+}
+
+static int RECOIL_GetBspBitmapPixel(uint8_t const *content, int bitmapOffset, int x, int y)
+{
+	int col = x >> 3;
+	int a = content[bitmapOffset + 6144 + (y >> 3 << 5) + col];
+	int c = a;
+	if ((content[bitmapOffset + RECOIL_GetZxLineOffset(y) + col] >> (~x & 7) & 1) == 0)
+		c >>= 3;
+	c = RECOIL_GetZxColor(c);
+	if ((a & 64) == 0)
+		c &= 13487565;
+	return c;
+}
+
+static bool RECOIL_DecodeBspFrame(RECOIL *self, int pixelsOffset, uint8_t const *content, int contentLength, int bitmapOffset, int borderOffset)
+{
+	for (int y = 0; y < self->height; y++) {
+		int c = 0;
+		int b = 1;
+		for (int x = 0; x < self->width; x++) {
+			if (borderOffset < 0)
+				c = RECOIL_GetBspBitmapPixel(content, bitmapOffset, x, y);
+			else if (x >= 64 && x < 320 && y >= 64 && y < 256) {
+				c = RECOIL_GetBspBitmapPixel(content, bitmapOffset, x - 64, y - 64);
+				b = 1;
+			}
+			else if (b > 0) {
+				if (--b == 0) {
+					if (borderOffset >= contentLength)
+						return false;
+					b = content[borderOffset++];
+					c = RECOIL_GetZxColor(b) & 13487565;
+					b >>= 3;
+					switch (b) {
+					case 0:
+						break;
+					case 1:
+						if (borderOffset >= contentLength)
+							return false;
+						b = content[borderOffset++];
+						break;
+					case 2:
+						b = 12;
+						break;
+					default:
+						b += 13;
+						break;
+					}
+					b <<= 1;
+				}
+			}
+			self->pixels[pixelsOffset + y * self->width + x] = c;
+		}
+	}
+	return true;
+}
+
+static bool RECOIL_DecodeBsp(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 6982)
+		return false;
+	if ((content[3] & 64) == 0) {
+		RECOIL_SetSize(self, 256, 192, RECOILResolution_SPECTRUM1X1);
+		RECOIL_DecodeBspFrame(self, 0, content, contentLength, 70, -1);
+		if (content[3] < 128)
+			return true;
+		return contentLength == 13894 && RECOIL_DecodeBspFrame(self, 49152, content, contentLength, 6982, -1) && RECOIL_ApplyBlend(self);
+	}
+	RECOIL_SetSize(self, 384, 304, RECOILResolution_SPECTRUM1X1);
+	if (content[3] < 128)
+		return RECOIL_DecodeBspFrame(self, 0, content, contentLength, 70, 6982);
+	return RECOIL_DecodeBspFrame(self, 0, content, contentLength, 72, 13896) && RECOIL_DecodeBspFrame(self, 116736, content, contentLength, 6984, content[70] | content[71] << 8) && RECOIL_ApplyBlend(self);
+}
+
+static bool RECOIL_DecodeNxi(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength != 49664)
+		return false;
+	for (int i = 0; i < 256; i++) {
+		int c = content[i << 1];
+		self->contentPalette[i] = (c >> 5) * 73 >> 1 << 16 | (c >> 2 & 7) * 73 >> 1 << 8 | ((c & 3) << 1 | (content[(i << 1) + 1] & 1)) * 73 >> 1;
+	}
+	RECOIL_SetSize(self, 256, 192, RECOILResolution_SPECTRUM1X1);
+	RECOIL_DecodeBytes(self, content, 512);
 	return true;
 }
 
@@ -8186,6 +8559,8 @@ static void RECOIL_DecodeMsxScreen(RECOIL *self, uint8_t const *content, int con
 			case 12:
 				rgb = RECOIL_DecodeMsxYjk(self, screen, screenOffset + (y >> interlaceMask << 8), x >> interlaceMask, false);
 				break;
+			default:
+				assert(false);
 			}
 			self->pixels[y * self->width + x] = rgb;
 		}
@@ -8611,6 +8986,8 @@ static void RECOIL_DecodeG9bUnpacked(RECOIL *self, uint8_t const *content, int d
 			self->pixels[i] = rgb | (rgb >> 5 & 460551);
 		}
 		break;
+	default:
+		assert(false);
 	}
 }
 
@@ -8660,7 +9037,7 @@ static bool RECOIL_DecodeG9b(RECOIL *self, uint8_t const *content, int contentLe
 		return true;
 	case 1:
 		;
-		uint8_t *unpacked = (uint8_t *) CiShared_Make(unpackedLength, sizeof(uint8_t ), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) CiShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
 		G9bStream s;
 		G9bStream_Construct(&s);
 		s.base.base.content = content;
@@ -8825,10 +9202,10 @@ static bool RECOIL_DecodeAppleIIDhr(RECOIL *self, uint8_t const *content, int co
 	return true;
 }
 
-static void RECOIL_DecodeShrLine(RECOIL *self, uint8_t const *content, int y, int paletteOffset)
+static void RECOIL_SetAppleIIGSPalette(RECOIL *self, uint8_t const *content, int contentOffset, int reverse)
 {
 	for (int c = 0; c < 16; c++) {
-		int offset = paletteOffset ^ c << 1;
+		int offset = contentOffset + ((c ^ reverse) << 1);
 		int gb = content[offset];
 		int r = content[offset + 1] & 15;
 		int g = gb >> 4;
@@ -8837,6 +9214,10 @@ static void RECOIL_DecodeShrLine(RECOIL *self, uint8_t const *content, int y, in
 		rgb |= rgb << 4;
 		self->contentPalette[c] = rgb;
 	}
+}
+
+static void RECOIL_DecodeShrLine(RECOIL *self, uint8_t const *content, int y)
+{
 	for (int x = 0; x < 320; x++)
 		self->pixels[y * 320 + x] = self->contentPalette[RECOIL_GetNibble(content, y * 160, x)];
 }
@@ -8846,8 +9227,10 @@ static bool RECOIL_DecodeAppleIIShr(RECOIL *self, uint8_t const *content, int co
 	if (contentLength != 32768)
 		return false;
 	RECOIL_SetSize(self, 320, 200, RECOILResolution_APPLE_I_I_G_S1X1);
-	for (int y = 0; y < 200; y++)
-		RECOIL_DecodeShrLine(self, content, y, 32256 + ((content[32000 + y] & 15) << 5));
+	for (int y = 0; y < 200; y++) {
+		RECOIL_SetAppleIIGSPalette(self, content, 32256 + ((content[32000 + y] & 15) << 5), 0);
+		RECOIL_DecodeShrLine(self, content, y);
+	}
 	return true;
 }
 
@@ -8856,8 +9239,10 @@ static bool RECOIL_DecodeSh3(RECOIL *self, uint8_t const *content, int contentLe
 	if (contentLength != 38400)
 		return false;
 	RECOIL_SetSize(self, 320, 200, RECOILResolution_APPLE_I_I_G_S1X1);
-	for (int y = 0; y < 200; y++)
-		RECOIL_DecodeShrLine(self, content, y, 32030 + (y << 5));
+	for (int y = 0; y < 200; y++) {
+		RECOIL_SetAppleIIGSPalette(self, content, 32000 + (y << 5), 15);
+		RECOIL_DecodeShrLine(self, content, y);
+	}
 	return true;
 }
 
@@ -8869,7 +9254,7 @@ static void RECOIL_DrawSprByte(RECOIL *self, int x1, int y, int b)
 	}
 }
 
-static bool RECOIL_DecodeSpr(RECOIL *self, uint8_t const *content, int contentLength)
+static bool RECOIL_DecodeAppleSpr(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	RECOIL_SetSize(self, 320, 200, RECOILResolution_APPLE_I_I1X1);
 	for (int i = 0; i < 64000; i++)
@@ -8922,6 +9307,127 @@ static bool RECOIL_DecodeSpr(RECOIL *self, uint8_t const *content, int contentLe
 	return true;
 }
 
+static bool RECOIL_DecodePackBytes(RECOIL *self, PackBytesStream *stream, int pixelsOffset, int unpackedBytes)
+{
+	for (int x = 0; x < unpackedBytes; x++) {
+		int b = PackBytesStream_ReadUnpacked(stream);
+		if (b < 0)
+			return false;
+		if (self->resolution == RECOILResolution_APPLE_I_I_G_S1X2) {
+			int offset = (pixelsOffset << 1) + (x << 2);
+			self->pixels[offset + self->width] = self->pixels[offset] = self->contentPalette[8 + (b >> 6)];
+			self->pixels[offset + self->width + 1] = self->pixels[offset + 1] = self->contentPalette[12 + (b >> 4 & 3)];
+			self->pixels[offset + self->width + 2] = self->pixels[offset + 2] = self->contentPalette[b >> 2 & 3];
+			self->pixels[offset + self->width + 3] = self->pixels[offset + 3] = self->contentPalette[4 + (b & 3)];
+		}
+		else {
+			self->pixels[pixelsOffset + (x << 1)] = self->contentPalette[b >> 4];
+			self->pixels[pixelsOffset + (x << 1) + 1] = self->contentPalette[b & 15];
+		}
+	}
+	return true;
+}
+
+static bool RECOIL_DecodePaintworks(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 1041)
+		return false;
+	RECOIL_SetSize(self, 320, 396, RECOILResolution_APPLE_I_I_G_S1X1);
+	RECOIL_SetAppleIIGSPalette(self, content, 0, 0);
+	PackBytesStream stream;
+	PackBytesStream_Construct(&stream);
+	stream.base.content = content;
+	stream.base.contentOffset = 546;
+	stream.base.contentLength = contentLength;
+	return RECOIL_DecodePackBytes(self, &stream, 0, 63360);
+}
+
+static bool RECOIL_Decode3201(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 6654 || content[0] != 193 || content[1] != 208 || content[2] != 208 || content[3] != 0)
+		return false;
+	RECOIL_SetSize(self, 320, 200, RECOILResolution_APPLE_I_I_G_S1X1);
+	PackBytesStream stream;
+	PackBytesStream_Construct(&stream);
+	stream.base.content = content;
+	stream.base.contentOffset = 6404;
+	stream.base.contentLength = contentLength;
+	for (int y = 0; y < 200; y++) {
+		RECOIL_SetAppleIIGSPalette(self, content, 4 + (y << 5), 15);
+		if (!RECOIL_DecodePackBytes(self, &stream, y * 320, 160))
+			return false;
+	}
+	return true;
+}
+
+static bool RECOIL_DecodeApfShr(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 1249 || content[4] != 4 || !RECOIL_IsStringAt(content, 5, "MAIN") || content[14] != 0)
+		return false;
+	int paletteCount = content[13];
+	if (paletteCount > 16)
+		return false;
+	int dirOffset = 17 + (paletteCount << 5);
+	if (dirOffset >= contentLength)
+		return false;
+	int mode = content[9] & 240;
+	int width = content[11] | content[12] << 8;
+	int height = content[dirOffset - 2] | content[dirOffset - 1] << 8;
+	int bytesPerLine;
+	switch (mode) {
+	case 0:
+		if ((width & 1) != 0 || !RECOIL_SetSize(self, width, height, RECOILResolution_APPLE_I_I_G_S1X1))
+			return false;
+		bytesPerLine = width >> 1;
+		break;
+	case 128:
+		if ((width & 3) != 0 || !RECOIL_SetSize(self, width, height << 1, RECOILResolution_APPLE_I_I_G_S1X2))
+			return false;
+		bytesPerLine = width >> 2;
+		break;
+	default:
+		return false;
+	}
+	int multipalOffset = -1;
+	int contentOffset = 0;
+	if (height == 200) {
+		for (int chunkLength = RECOIL_Get32LittleEndian(content, 0);;) {
+			if (chunkLength <= 0)
+				return false;
+			contentOffset += chunkLength;
+			if (contentOffset < 0 || contentOffset + 6415 > contentLength)
+				break;
+			chunkLength = RECOIL_Get32LittleEndian(content, contentOffset);
+			if (chunkLength == 6415 && content[contentOffset + 4] == 8 && RECOIL_IsStringAt(content, contentOffset + 5, "MULTIPAL") && content[contentOffset + 13] == 200 && content[contentOffset + 14] == 0) {
+				multipalOffset = contentOffset + 15;
+				break;
+			}
+		}
+	}
+	contentOffset = dirOffset + (height << 2);
+	if (contentOffset >= contentLength)
+		return false;
+	PackBytesStream stream;
+	PackBytesStream_Construct(&stream);
+	stream.base.content = content;
+	stream.base.contentOffset = contentOffset;
+	stream.base.contentLength = contentLength;
+	for (int y = 0; y < height; y++) {
+		if (multipalOffset >= 0)
+			RECOIL_SetAppleIIGSPalette(self, content, multipalOffset + (y << 5), 0);
+		else {
+			int lineMode = content[dirOffset + (y << 2) + 2];
+			int palette = lineMode & 15;
+			if ((lineMode & 240) != mode || palette >= paletteCount || content[dirOffset + (y << 2) + 3] != 0)
+				return false;
+			RECOIL_SetAppleIIGSPalette(self, content, 15 + (palette << 5), 0);
+		}
+		if (!RECOIL_DecodePackBytes(self, &stream, y * width, bytesPerLine))
+			return false;
+	}
+	return true;
+}
+
 static bool RECOIL_DecodeScs4(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	if (contentLength != 24617 || content[24616] != 255)
@@ -8963,7 +9469,7 @@ static bool RECOIL_DecodeX68KPicChain(RECOIL *self, BitStream *stream, int pixel
 	for (;;) {
 		switch (BitStream_ReadBits(stream, 2)) {
 		case 0:
-			switch (BitStream_ReadBit(stream)) {
+			switch (stream->vtbl->readBit(stream)) {
 			case 0:
 				return true;
 			case 1:
@@ -8971,7 +9477,7 @@ static bool RECOIL_DecodeX68KPicChain(RECOIL *self, BitStream *stream, int pixel
 			default:
 				return false;
 			}
-			switch (BitStream_ReadBit(stream)) {
+			switch (stream->vtbl->readBit(stream)) {
 			case 0:
 				pixelsOffset -= 2;
 				break;
@@ -9027,7 +9533,7 @@ static bool RECOIL_DecodeX68KPicScreen(RECOIL *self, X68KPicStream *stream, int 
 			color = self->contentPalette[color];
 		}
 		else {
-			switch (BitStream_ReadBit(&stream->base)) {
+			switch (stream->base.vtbl->readBit(&stream->base)) {
 			case 0:
 				color = BitStream_ReadBits(&stream->base, depth);
 				if (color < 0)
@@ -9059,7 +9565,7 @@ static bool RECOIL_DecodeX68KPicScreen(RECOIL *self, X68KPicStream *stream, int 
 		self->pixels[++pixelsOffset] = color;
 		if (pixelsOffset >= pixelsLength - 1)
 			return true;
-		switch (BitStream_ReadBit(&stream->base)) {
+		switch (stream->base.vtbl->readBit(&stream->base)) {
 		case 0:
 			break;
 		case 1:
@@ -9149,10 +9655,212 @@ static bool RECOIL_DecodeX68KPic(RECOIL *self, uint8_t const *content, int conte
 	return RECOIL_DecodeX68KPicScreen(self, &stream, pixelsLength, 0, depth);
 }
 
+static bool RECOIL_DecodeDaVinci(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if ((contentLength & 255) != 0)
+		return false;
+	RECOIL_SetSize(self, 640, 400, RECOILResolution_PC881X2);
+	DaVinciStream stream;
+	DaVinciStream_Construct(&stream);
+	stream.base.base.base.content = content;
+	stream.base.base.base.contentOffset = 0;
+	stream.base.base.base.contentLength = contentLength;
+	for (int y = 0; y < 200; y++) {
+		for (int column = 0; column < 640; column += 8) {
+			int b = RleStream_ReadRle(&stream.base);
+			if (b < 0)
+				return false;
+			for (int x = 0; x < 8; x++) {
+				int offset = y * 1280 + column + x;
+				self->pixels[offset + 640] = self->pixels[offset] = (b >> (7 - x) & 65793) * 255;
+			}
+		}
+	}
+	return stream.base.repeatCount == 0 && contentLength - stream.base.base.base.contentOffset < 256;
+}
+
+static bool RECOIL_DecodeNl3(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	Nl3Stream stream;
+	Nl3Stream_Construct(&stream);
+	stream.base.base.base.content = content;
+	stream.base.base.base.contentOffset = 0;
+	stream.base.base.base.contentLength = contentLength;
+	for (int i = 0; i < 64; i++) {
+		int c = ((const RleStreamVtbl *) stream.base.base.vtbl)->readValue(&stream.base);
+		if (c < 0 || c > 127)
+			return false;
+		c |= ((const RleStreamVtbl *) stream.base.base.vtbl)->readValue(&stream.base) << 7;
+		if (c < 0 || c >= 729)
+			return false;
+		self->contentPalette[i] = RECOIL_Get729Color(c);
+	}
+	RECOIL_SetSize(self, 160, 100, RECOILResolution_PC981X1);
+	for (int x = 0; x < 160; x++) {
+		for (int y = 0; y < 100; y++) {
+			int b = RleStream_ReadRle(&stream.base);
+			if (b < 0)
+				return false;
+			self->pixels[y * 160 + x] = self->contentPalette[b];
+		}
+	}
+	return true;
+}
+
+static bool RECOIL_DecodeMl1Chain(RECOIL *self, X68KPicStream *stream, int pixelsOffset, int rgb)
+{
+	for (;;) {
+		switch (stream->base.vtbl->readBit(&stream->base)) {
+		case 0:
+			break;
+		case 1:
+			switch (BitStream_ReadBits(&stream->base, 2)) {
+			case 0:
+				pixelsOffset++;
+				break;
+			case 1:
+				pixelsOffset--;
+				break;
+			case 2:
+				return true;
+			case 3:
+				switch (stream->base.vtbl->readBit(&stream->base)) {
+				case 0:
+					pixelsOffset += 2;
+					break;
+				case 1:
+					pixelsOffset -= 2;
+					break;
+				default:
+					return false;
+				}
+				break;
+			default:
+				return false;
+			}
+			break;
+		default:
+			return false;
+		}
+		pixelsOffset += self->width;
+		if (pixelsOffset < 0 || pixelsOffset >= self->width * self->height)
+			return false;
+		self->pixels[pixelsOffset] = rgb;
+	}
+}
+
+static bool RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream)
+{
+	if (BitStream_ReadBits(&stream->base, 32) != 825241626 || BitStream_ReadBits(&stream->base, 32) < 0 || BitStream_ReadBits(&stream->base, 16) < 0)
+		return false;
+	int startX = BitStream_ReadBits(&stream->base, 16);
+	int startY = BitStream_ReadBits(&stream->base, 16);
+	int width = BitStream_ReadBits(&stream->base, 16) - startX + 1;
+	int height = BitStream_ReadBits(&stream->base, 16) - startY + 1;
+	for (int i = 0; i < 624; i++) {
+		if (stream->base.vtbl->readBit(&stream->base) < 0)
+			return false;
+	}
+	int mode = BitStream_ReadBits(&stream->base, 2);
+	int lastColor;
+	switch (mode) {
+	case 0:
+		lastColor = 127;
+		break;
+	case 1:
+	case 2:
+		lastColor = BitStream_ReadBits(&stream->base, 7);
+		break;
+	default:
+		return false;
+	}
+	if (!RECOIL_SetSize(self, width, height, RECOILResolution_PC981X1))
+		return false;
+	memset(self->contentPalette, 0, sizeof(self->contentPalette));
+	for (int i = 0; i <= lastColor; i++) {
+		int j = 0;
+		if (mode > 0)
+			j = BitStream_ReadBits(&stream->base, 7);
+		int c = BitStream_ReadBits(&stream->base, 10);
+		if (c < 0 || c >= 729)
+			return false;
+		self->contentPalette[mode == 1 ? j : i] = RECOIL_Get729Color(c);
+	}
+	int pixelsLength = width * height;
+	for (int pixelsOffset = 0; pixelsOffset < pixelsLength; pixelsOffset++)
+		self->pixels[pixelsOffset] = 1;
+	for (int pixelsOffset = 0; pixelsOffset < pixelsLength;) {
+		int distance = X68KPicStream_ReadLength(stream);
+		if (distance < 0 || pixelsOffset + distance > pixelsLength)
+			return false;
+		int c = mode == 2 ? X68KPicStream_ReadLength(stream) - 1 : BitStream_ReadBits(&stream->base, 7);
+		if (c < 0 || c >= 128)
+			return false;
+		int rgb = self->contentPalette[c];
+		switch (stream->base.vtbl->readBit(&stream->base)) {
+		case 0:
+			break;
+		case 1:
+			if (!RECOIL_DecodeMl1Chain(self, stream, pixelsOffset, rgb))
+				return false;
+			break;
+		default:
+			return false;
+		}
+		self->pixels[pixelsOffset++] = rgb;
+		while (--distance > 0) {
+			int old = self->pixels[pixelsOffset];
+			if (old == 1)
+				self->pixels[pixelsOffset] = rgb;
+			else
+				rgb = old;
+			pixelsOffset++;
+		}
+	}
+	return X68KPicStream_ReadLength(stream) == pixelsLength + 1;
+}
+
+static bool RECOIL_DecodeMl1(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	X68KPicStream stream;
+	X68KPicStream_Construct(&stream);
+	stream.base.base.content = content;
+	stream.base.base.contentOffset = 0;
+	stream.base.base.contentLength = contentLength;
+	return RECOIL_DecodeMl1Mx1(self, &stream);
+}
+
+static bool RECOIL_DecodeMx1(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	int contentOffset = 0;
+	for (;;) {
+		int lineOffset = contentOffset;
+		for (;;) {
+			if (contentOffset >= contentLength)
+				return false;
+			int c = content[contentOffset++];
+			if (c == 13 || c == 10)
+				break;
+		}
+		if (contentOffset - lineOffset >= 17 && RECOIL_IsStringAt(content, lineOffset, "@@@ ") && RECOIL_IsStringAt(content, contentOffset - 8, "es) @@@"))
+			break;
+	}
+	Mx1Stream stream;
+	Mx1Stream_Construct(&stream);
+	stream.base.base.base.content = content;
+	stream.base.base.base.contentOffset = contentOffset;
+	stream.base.base.base.contentLength = contentLength;
+	return RECOIL_DecodeMl1Mx1(self, &stream.base);
+}
+
 static int RECOIL_UnpackZim(uint8_t const *content, int contentOffset, int end, uint8_t const *flags, uint8_t *unpacked, int unpackedLength)
 {
-	for (int unpackedOffset = 0; unpackedOffset < unpackedLength; unpackedOffset++)
-		unpacked[unpackedOffset] = (uint8_t) (contentOffset < end && (flags[unpackedOffset >> 3] >> (~unpackedOffset & 7) & 1) != 0 ? content[contentOffset++] : 0);
+	for (int unpackedOffset = 0; unpackedOffset < unpackedLength; unpackedOffset++) {
+		if (contentOffset < end && (flags[unpackedOffset >> 3] >> (~unpackedOffset & 7) & 1) != 0)
+			unpacked[unpackedOffset] = content[contentOffset++];
+		else
+			unpacked[unpackedOffset] = 0;
+	}
 	return contentOffset;
 }
 
@@ -9361,7 +10069,7 @@ static bool RECOIL_DecodeMaki1(RECOIL *self, uint8_t const *content, int content
 	haveBlock.base.contentLength = 1096;
 	for (int i = 0; i < 8000; i++) {
 		int have = 0;
-		if (BitStream_ReadBit(&haveBlock) == 1) {
+		if (haveBlock.vtbl->readBit(&haveBlock) == 1) {
 			if (contentOffset + 1 >= contentLength)
 				return false;
 			have = content[contentOffset] << 8 | content[contentOffset + 1];
@@ -9400,14 +10108,14 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 	int colorOffset = headerOffset + RECOIL_Get32LittleEndian(content, headerOffset + 24);
 	if (haveDelta.base.contentOffset < 0 || deltaOffset < 0 || colorOffset < 0)
 		return false;
-	uint8_t deltas[640] = { 0 };
+	uint8_t deltas[2500] = { 0 };
 	for (int y = 0; y < height; y++) {
 		int delta = 0;
 		for (int x = 0; x < bytesPerLine; x++) {
 			if ((x & 1) == 0) {
 				delta = deltas[x >> 2];
 				if ((x & 2) == 0) {
-					switch (BitStream_ReadBit(&haveDelta)) {
+					switch (haveDelta.vtbl->readBit(&haveDelta)) {
 					case 0:
 						break;
 					case 1:
@@ -9542,7 +10250,7 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 	}
 	if (!RECOIL_SetScaledSize(self, width, height, resolution))
 		return false;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t ), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL);
 	if (!RECOIL_UnpackMag(content, headerOffset, contentLength, bytesPerLine, height, unpacked)) {
 		CiShared_Release(unpacked);
 		return false;
@@ -9710,6 +10418,23 @@ static bool RECOIL_DecodeG(RECOIL *self, uint8_t const *content, int contentLeng
 		return false;
 	RECOIL_SetSize(self, 256, 16, RECOILResolution_C641X1);
 	RECOIL_DecodeBlackAndWhiteFont(self, content, 2, 514, 8);
+	return true;
+}
+
+static bool RECOIL_DecodeCle(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength != 8194)
+		return false;
+	RECOIL_SetSize(self, 320, 200, RECOILResolution_C641X1);
+	int palette[4];
+	palette[0] = RECOIL_C64_PALETTE[content[8004] & 15];
+	palette[1] = RECOIL_C64_PALETTE[content[8002] >> 4];
+	palette[2] = RECOIL_C64_PALETTE[content[8002] & 15];
+	palette[3] = RECOIL_C64_PALETTE[content[8003] & 15];
+	for (int y = 0; y < 200; y++) {
+		for (int x = 0; x < 320; x++)
+			self->pixels[y * 320 + x] = palette[content[2 + (y & -8) * 40 + (x & -8) + (y & 7)] >> (~x & 6) & 3];
+	}
 	return true;
 }
 
@@ -10497,6 +11222,85 @@ static bool RECOIL_DecodeFpr(RECOIL *self, uint8_t const *content, int contentLe
 	return true;
 }
 
+static bool RECOIL_DecodeCtm(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 30 || content[0] != 67 || content[1] != 84 || content[2] != 77 || content[3] != 5)
+		return false;
+	int colorMethod = content[8];
+	if (colorMethod > 2)
+		return false;
+	int flags = content[9];
+	bool tiles = (flags & 1) != 0;
+	if (colorMethod == 1 && !tiles)
+		return false;
+	bool charex = (flags & 2) != 0;
+	bool multi = (flags & 4) != 0;
+	int charCount = content[10] + (content[11] << 8) + 1;
+	int tileCount = tiles ? content[12] + (content[13] << 8) + 1 : 0;
+	int tileWidth = tiles ? content[14] : 1;
+	int tileHeight = tiles ? content[15] : 1;
+	if (tileWidth == 0 || tileHeight == 0)
+		return false;
+	int mapWidth = content[16] | content[17] << 8;
+	int mapHeight = content[18] | content[19] << 8;
+	int tilesOffset = 20 + charCount * 9;
+	int tileColorsOffset = charex ? tilesOffset : tilesOffset + tileCount * (tileWidth * tileHeight << 1);
+	int mapOffset = colorMethod == 1 ? tileColorsOffset + tileCount : tileColorsOffset;
+	if (contentLength != mapOffset + (mapWidth * mapHeight << 1))
+		return false;
+	int width = mapWidth * tileWidth << 3;
+	int height = mapHeight * tileHeight << 3;
+	if (!RECOIL_SetSize(self, width, height, multi ? RECOILResolution_C642X1 : RECOILResolution_C641X1))
+		return false;
+	for (int y = 0; y < height; y++) {
+		int mapRowOffset = mapOffset + ((y >> 3) / tileHeight * mapWidth << 1);
+		for (int x = 0; x < width; x++) {
+			int mapTileOffset = mapRowOffset + ((x >> 3) / tileWidth << 1);
+			int tile = content[mapTileOffset] | content[mapTileOffset + 1] << 8;
+			int ch;
+			if (tiles) {
+				if (tile >= tileCount)
+					return false;
+				ch = (tile * tileHeight + (y >> 3) % tileHeight) * tileWidth + (x >> 3) % tileWidth;
+				if (!charex) {
+					int tileOffset = tilesOffset + (ch << 1);
+					ch = content[tileOffset] | content[tileOffset + 1] << 8;
+				}
+			}
+			else
+				ch = tile;
+			if (ch >= charCount)
+				return false;
+			int foregroundOffset;
+			switch (colorMethod) {
+			case 1:
+				foregroundOffset = tileColorsOffset + tile;
+				break;
+			case 2:
+				foregroundOffset = 20 + (charCount << 3) + ch;
+				break;
+			default:
+				foregroundOffset = 7;
+				break;
+			}
+			int c = content[20 + (ch << 3) + (y & 7)];
+			if (multi) {
+				c = c >> (~x & 6) & 3;
+				if (c == 3)
+					c = content[foregroundOffset] & 7;
+				else
+					c = content[4 + c];
+			}
+			else {
+				c = c >> (~x & 7) & 1;
+				c = content[c == 0 ? 4 : foregroundOffset];
+			}
+			self->pixels[y * width + x] = RECOIL_C64_PALETTE[c & 15];
+		}
+	}
+	return true;
+}
+
 static bool RECOIL_DecodeDoo(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	RECOIL_SetSize(self, 640, 400, RECOILResolution_ST1X1);
@@ -10759,8 +11563,8 @@ static bool RECOIL_DecodeGdosFnt(RECOIL *self, uint8_t const *content, int conte
 	if (characterEndOffset > bitmapOffset)
 		return false;
 	int width = height << 4;
-	if (width > 2560)
-		width = 2560;
+	if (width > 10000)
+		width = 10000;
 	stream.base.contentOffset = characterOffset;
 	stream.base.contentLength = characterEndOffset;
 	int leftX = 0;
@@ -11351,7 +12155,7 @@ static bool RECOIL_DecodeTny(RECOIL *self, uint8_t const *content, int contentLe
 				if (b < 0)
 					return false;
 				unpacked[unpackedOffset] = (uint8_t) (b >> 8);
-				unpacked[unpackedOffset + 1] = (uint8_t) (b & 255);
+				unpacked[unpackedOffset + 1] = (uint8_t) b;
 			}
 		}
 	}
@@ -11501,7 +12305,9 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 		int count = 0;
 		for (int i = 0; i < pixelsLength; i++) {
 			if (count == 0) {
-				if (contentOffset + 1 >= contentLength || content[contentOffset++] != 128)
+				if (contentOffset + 1 >= contentLength)
+					return false;
+				if (content[contentOffset++] != 128)
 					return false;
 				count = content[contentOffset++];
 				if (count == 0)
@@ -11570,7 +12376,7 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 	if (bitplanes == 24)
 		bytesPerBitplane = (bytesPerBitplane + 1) & -2;
 	int bytesPerLine = bitplanes * bytesPerBitplane;
-	uint8_t unpacked[10240] = { 0 };
+	uint8_t unpacked[40000] = { 0 };
 	for (int y = 0; y < height;) {
 		int lineRepeatCount = ImgStream_GetLineRepeatCount(&rle);
 		if (lineRepeatCount > height - y)
@@ -11893,12 +12699,14 @@ static bool RECOIL_DecodeSpx(RECOIL *self, uint8_t const *content, int contentLe
 	if (contentLength < 12 || content[0] != 83 || content[1] != 80 || content[2] != 88)
 		return false;
 	int contentOffset = 10;
-	int zerosToSkip = 2;
-	do {
+	for (int zerosToSkip = 2;;) {
 		if (contentOffset + 16 >= contentLength)
 			return false;
+		if (content[contentOffset++] == 0) {
+			if (--zerosToSkip == 0)
+				break;
+		}
 	}
-	while (content[contentOffset++] != 0 || --zerosToSkip > 0);
 	int bitmapLength = RECOIL_Get32BigEndian(content, contentOffset);
 	SpxStream stream;
 	stream.base.content = content;
@@ -11928,7 +12736,7 @@ static bool RECOIL_DecodeSpx(RECOIL *self, uint8_t const *content, int contentLe
 	if (bitmapLength <= 0 || bitmapLength % 160 != 0)
 		return false;
 	int height = bitmapLength / 160;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(height << 8, sizeof(uint8_t ), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) CiShared_Make(height << 8, sizeof(uint8_t), NULL, NULL);
 	bool returnValue = RECOIL_UnpackAndDecodeSpx(self, &stream, contentLength, height, unpacked);
 	CiShared_Release(unpacked);
 	return returnValue;
@@ -12142,6 +12950,8 @@ static void RECOIL_DecodeMppScreen(RECOIL *self, uint8_t const *content, int pal
 				case 2:
 					changeX += 8;
 					break;
+				default:
+					assert(false);
 				}
 				changeColor++;
 			}
@@ -12243,10 +13053,12 @@ static bool RECOIL_DecodeStIcn(RECOIL *self, uint8_t const *content, int content
 		if (value < 0)
 			return false;
 		bitmap[i * 2] = (uint8_t) (value >> 8);
-		bitmap[i * 2 + 1] = (uint8_t) (value & 255);
+		bitmap[i * 2 + 1] = (uint8_t) value;
 		if (++i >= size)
 			break;
-		if (parser.base.contentOffset >= contentLength || content[parser.base.contentOffset++] != 44)
+		if (parser.base.contentOffset >= contentLength)
+			return false;
+		if (content[parser.base.contentOffset++] != 44)
 			return false;
 	}
 	if (!IcnParser_Expect(&parser, "};"))
@@ -12480,22 +13292,26 @@ static bool RECOIL_DecodeDc1(RECOIL *self, uint8_t const *content, int contentLe
 			for (int x = 0; x < 2; x++) {
 				if (repeatCount == 0) {
 					int nextContentOffset = contentOffset + compression * 2;
-					if (nextContentOffset <= contentLength) {
-						switch (compression) {
-						case 1:
-							repeatCount = content[contentOffset] + 1;
-							break;
-						case 2:
-							repeatCount = ((content[contentOffset] << 8) + content[contentOffset + 1] + 1) << 1;
-							break;
-						case 3:
-							repeatCount = ((content[contentOffset] << 8) + content[contentOffset + 1] + 1) << 2;
-							break;
-						}
-						contentOffset = nextContentOffset;
+					if (nextContentOffset > contentLength) {
+						unpacked[unpackedOffset + x] = 0;
+						continue;
 					}
+					switch (compression) {
+					case 1:
+						repeatCount = content[contentOffset] + 1;
+						break;
+					case 2:
+						repeatCount = ((content[contentOffset] << 8) + content[contentOffset + 1] + 1) << 1;
+						break;
+					case 3:
+						repeatCount = ((content[contentOffset] << 8) + content[contentOffset + 1] + 1) << 2;
+						break;
+					default:
+						assert(false);
+					}
+					contentOffset = nextContentOffset;
 				}
-				unpacked[unpackedOffset + x] = (uint8_t) (repeatCount > 0 ? content[contentOffset - (--repeatCount & (valueBytes - 1)) - 1] : 0);
+				unpacked[unpackedOffset + x] = content[contentOffset - (--repeatCount & (valueBytes - 1)) - 1];
 			}
 		}
 	}
@@ -12513,7 +13329,7 @@ static bool RECOIL_DecodeDel(RECOIL *self, uint8_t const *content, int contentLe
 
 static bool RECOIL_DecodeDph(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(320000, sizeof(uint8_t ), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) CiShared_Make(320000, sizeof(uint8_t), NULL, NULL);
 	if (!CaStream_UnpackDel(content, contentLength, unpacked, 10)) {
 		CiShared_Release(unpacked);
 		return false;
@@ -12805,7 +13621,7 @@ static bool RECOIL_DecodePntUnpacked(RECOIL *self, uint8_t const *content, uint8
 	}
 }
 
-static bool RECOIL_DecodePnt(RECOIL *self, uint8_t const *content, int contentLength)
+static bool RECOIL_DecodeFalconPnt(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	if (contentLength < 128 || content[0] != 80 || content[1] != 78 || content[2] != 84 || content[3] != 0 || content[4] != 1 || content[5] != 0 || content[12] != 0 || content[14] != 0)
 		return false;
@@ -12823,7 +13639,7 @@ static bool RECOIL_DecodePnt(RECOIL *self, uint8_t const *content, int contentLe
 		return bitmapLength == unpackedLength && RECOIL_DecodePntUnpacked(self, content, content, bitmapOffset, width, height);
 	case 1:
 		;
-		uint8_t *unpacked = (uint8_t *) CiShared_Make(unpackedLength, sizeof(uint8_t ), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) CiShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
 		PackBitsStream rle;
 		PackBitsStream_Construct(&rle);
 		rle.base.base.base.content = content;
@@ -12950,7 +13766,7 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 	int pointsOffset = 110 + RECOIL_Get32BigEndian(content, 130);
 	if (pointsOffset < 0)
 		return false;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(bitplanes * width * height, sizeof(uint8_t ), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) CiShared_Make(bitplanes * width * height, sizeof(uint8_t), NULL, NULL);
 	int picOffset = 135;
 	int pic = content[134];
 	int rleBits = content[rleOffset++] << 8 | 128;
@@ -13148,7 +13964,7 @@ static bool RECOIL_DecodeDeep(RECOIL *self, uint8_t const *content, int contentL
 					int rgb;
 					switch (compression) {
 					case 0:
-						rgb = rle.base.base.vtbl->readValue(&rle.base.base);
+						rgb = ((const RleStreamVtbl *) rle.base.base.base.vtbl)->readValue(&rle.base.base);
 						break;
 					case 1:
 						rgb = RleStream_ReadRle(&rle.base.base);
@@ -13233,7 +14049,7 @@ static void RECOIL_DecodeHam(RECOIL *self, uint8_t const *unpacked, int width, i
 	int holdBits = bitplanes > 6 ? 6 : 4;
 	for (int y = 0; y < height; y++) {
 		if (multiPalette != NULL)
-			multiPalette->vtbl->setLinePalette(multiPalette, self, y);
+			((const MultiPaletteVtbl *) multiPalette->base.vtbl)->setLinePalette(multiPalette, self, y);
 		int rgb = self->contentPalette[0];
 		for (int x = 0; x < width; x++) {
 			int c = RECOIL_GetBitplaneWordsPixel(unpacked, y * bytesPerLine, x, bitplanes);
@@ -13256,6 +14072,8 @@ static void RECOIL_DecodeHam(RECOIL *self, uint8_t const *unpacked, int width, i
 				c |= c >> holdBits;
 				rgb = (rgb & 16711935) | c << 8;
 				break;
+			default:
+				assert(false);
 			}
 			RECOIL_SetScaledPixel(self, x, y, rgb);
 		}
@@ -13386,7 +14204,7 @@ static bool RECOIL_DecodeDctv(RECOIL *self, uint8_t const *content, int width, i
 	}
 	RECOIL_SetScaledSize(self, width, height, resolution);
 	int contentOffset = bytesPerLine << interlace;
-	int chroma[2560];
+	int chroma[10000];
 	for (int y = 0; y < height; y++) {
 		int odd = y >> interlace & 1;
 		int rgb = 0;
@@ -13600,7 +14418,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 			int bytesPerLine = ((width + 15) >> 4 << 1) * bitplanes;
 			uint8_t *unpacked = NULL;
 			if (compression == 2) {
-				CiShared_Assign((void **) &unpacked, (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t ), NULL, NULL));
+				CiShared_Assign((void **) &unpacked, (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
 				VdatStream rle;
 				VdatStream_Construct(&rle);
 				rle.base.base.base.base.base.content = content;
@@ -13627,7 +14445,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 								return false;
 							}
 							unpacked[unpackedOffset] = (uint8_t) (b >> 8);
-							unpacked[unpackedOffset + 1] = (uint8_t) (b & 255);
+							unpacked[unpackedOffset + 1] = (uint8_t) b;
 							unpackedOffset += bytesPerLine;
 						}
 					}
@@ -13663,7 +14481,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 					CiShared_Release(unpacked);
 					return true;
 				}
-				CiShared_Assign((void **) &unpacked, (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t ), NULL, NULL));
+				CiShared_Assign((void **) &unpacked, (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
 				if (!PackBitsStream_UnpackBitplaneLines(&rle, unpacked, width, height, bitplanes, compression == 1, hasMask)) {
 					CiShared_Release(unpacked);
 					return false;
@@ -13690,7 +14508,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 			if (width == 0 || chunkLength != ((width + 15) >> 4 << 1) * height * bitplanes)
 				return false;
 			contentOffset += 8;
-			uint8_t *unpacked = (uint8_t *) CiShared_Make(chunkLength, sizeof(uint8_t ), NULL, NULL);
+			uint8_t *unpacked = (uint8_t *) CiShared_Make(chunkLength, sizeof(uint8_t), NULL, NULL);
 			for (int bitplane = 0; bitplane < bitplanes; bitplane++) {
 				for (int unpackedOffset = bitplane << 1; unpackedOffset < chunkLength; unpackedOffset += bitplanes << 1) {
 					unpacked[unpackedOffset] = content[contentOffset++];
@@ -13821,6 +14639,8 @@ static void RECOIL_SetGtiaColor(RECOIL *self, int reg, int value)
 	case 8:
 		self->gtiaColors[11] = self->gtiaColors[10] = self->gtiaColors[9] = self->gtiaColors[8] = (uint8_t) value;
 		break;
+	default:
+		assert(false);
 	}
 }
 
@@ -14084,7 +14904,7 @@ static void RECOIL_DecodeAtari8Gr12Line(const RECOIL *self, uint8_t const *chara
 	}
 }
 
-static void RECOIL_DecodeAtari8Player(const RECOIL *self, uint8_t const *content, int contentOffset, int color, uint8_t *frame, int frameOffset, int height)
+static void RECOIL_DecodeAtari8Player(const RECOIL *self, uint8_t const *content, int contentOffset, int color, uint8_t *frame, int frameOffset, int height, bool multi)
 {
 	color &= 254;
 	for (int y = 0; y < height; y++) {
@@ -14092,7 +14912,7 @@ static void RECOIL_DecodeAtari8Player(const RECOIL *self, uint8_t const *content
 		for (int x = 0; x < 8; x++) {
 			int c = b >> (7 - x) & 1;
 			if (c != 0)
-				frame[frameOffset + x * 2 + 1] = frame[frameOffset + x * 2] |= color;
+				frame[frameOffset + x * 2 + 1] = frame[frameOffset + x * 2] = (uint8_t) (multi ? frame[frameOffset + x * 2] | color : color);
 		}
 		frameOffset += self->width;
 	}
@@ -14303,7 +15123,7 @@ static bool RECOIL_DecodeGr9x4(RECOIL *self, uint8_t const *content, int content
 {
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_XE4X4))
 		return false;
-	uint8_t *frame = (uint8_t *) CiShared_Make(width * height, sizeof(uint8_t ), NULL, NULL);
+	uint8_t *frame = (uint8_t *) CiShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
 	self->gtiaColors[8] = 0;
 	for (int y = 0; y < 4; y++)
 		RECOIL_DecodeAtari8Gr9(self, content, contentOffset, width >> 3, frame, y * width, width << 2, width, height >> 2);
@@ -14575,7 +15395,7 @@ static bool RECOIL_DecodeWnd(RECOIL *self, uint8_t const *content, int contentLe
 static void RECOIL_DecodeAt800Players(const RECOIL *self, uint8_t const *content, uint8_t *frame)
 {
 	for (int i = 0; i < 4; i++)
-		RECOIL_DecodeAtari8Player(self, content, 4 + i * 240, content[i], frame, i * 10 * 2, 240);
+		RECOIL_DecodeAtari8Player(self, content, 4 + i * 240, content[i], frame, i * 10 * 2, 240, false);
 }
 
 static void RECOIL_DecodeAt800Missiles(const RECOIL *self, uint8_t const *content, int contentOffset, uint8_t *frame, int frameOffset)
@@ -14597,7 +15417,7 @@ static bool RECOIL_DecodePla(RECOIL *self, uint8_t const *content, int contentLe
 		return false;
 	RECOIL_SetSize(self, 16, 240, RECOILResolution_XE2X1);
 	uint8_t frame[3840] = { 0 };
-	RECOIL_DecodeAtari8Player(self, content, 1, content[0], frame, 0, 240);
+	RECOIL_DecodeAtari8Player(self, content, 1, content[0], frame, 0, 240, false);
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
 
@@ -14646,6 +15466,63 @@ static bool RECOIL_Decode4pm(RECOIL *self, uint8_t const *content, int contentLe
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
 
+static bool RECOIL_DecodeAtari8Spr(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 3 || contentLength > 42)
+		return false;
+	int height = content[0];
+	if (2 + height != contentLength)
+		return false;
+	RECOIL_SetSize(self, 16, height, RECOILResolution_XE2X1);
+	uint8_t frame[640] = { 0 };
+	RECOIL_DecodeAtari8Player(self, content, 2, content[1], frame, 0, height, false);
+	return RECOIL_ApplyAtari8Palette(self, frame);
+}
+
+static bool RECOIL_DecodeMsl(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 3 || contentLength > 36)
+		return false;
+	int height = content[0];
+	if (2 + height != contentLength)
+		return false;
+	RECOIL_SetSize(self, 4, height, RECOILResolution_XE2X1);
+	uint8_t frame[136];
+	for (int y = 0; y < height; y++) {
+		int b = content[2 + y];
+		if (b > 3)
+			return false;
+		frame[y * 4 + 1] = frame[y * 4] = (uint8_t) ((b & 2) == 0 ? 0 : content[1]);
+		frame[y * 4 + 3] = frame[y * 4 + 2] = (uint8_t) ((b & 1) == 0 ? 0 : content[1]);
+	}
+	return RECOIL_ApplyAtari8Palette(self, frame);
+}
+
+static bool RECOIL_DecodeMpl(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 13 || contentLength > 169)
+		return false;
+	int height = content[0];
+	if (9 + (height << 2) != contentLength)
+		return false;
+	int minX = 255;
+	int maxX = 0;
+	for (int i = 1; i < 5; i++) {
+		int x = content[i];
+		if (minX > x)
+			minX = x;
+		if (maxX < x)
+			maxX = x;
+	}
+	if (maxX + 8 > 56)
+		return false;
+	RECOIL_SetSize(self, (maxX + 8 - minX) << 1, height, RECOILResolution_XE2X1);
+	uint8_t frame[4480] = { 0 };
+	for (int i = 3; i >= 0; i--)
+		RECOIL_DecodeAtari8Player(self, content, 9 + i * height, content[5 + i], frame, (content[1 + i] - minX) << 1, height, false);
+	return RECOIL_ApplyAtari8Palette(self, frame);
+}
+
 static bool RECOIL_DecodeLdm(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	if (contentLength < 281)
@@ -14665,10 +15542,10 @@ static bool RECOIL_DecodeLdm(RECOIL *self, uint8_t const *content, int contentLe
 	for (int shape = 0; shape < shapes; shape++) {
 		int contentOffset = 281 + shape * 120;
 		int frameOffset = (shape >> 3) * 32 * 320 + (shape & 7) * 40;
-		RECOIL_DecodeAtari8Player(self, content, contentOffset, content[21], frame, frameOffset, 30);
-		RECOIL_DecodeAtari8Player(self, content, contentOffset + 30, content[22], frame, frameOffset, 30);
-		RECOIL_DecodeAtari8Player(self, content, contentOffset + 60, content[21], frame, frameOffset + 16, 30);
-		RECOIL_DecodeAtari8Player(self, content, contentOffset + 90, content[22], frame, frameOffset + 16, 30);
+		RECOIL_DecodeAtari8Player(self, content, contentOffset, content[21], frame, frameOffset, 30, true);
+		RECOIL_DecodeAtari8Player(self, content, contentOffset + 30, content[22], frame, frameOffset, 30, true);
+		RECOIL_DecodeAtari8Player(self, content, contentOffset + 60, content[21], frame, frameOffset + 16, 30, true);
+		RECOIL_DecodeAtari8Player(self, content, contentOffset + 90, content[22], frame, frameOffset + 16, 30, true);
 	}
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
@@ -14700,11 +15577,11 @@ static bool RECOIL_DecodePmd(RECOIL *self, uint8_t const *content, int contentLe
 		if (true) {
 			int spritePair = shape / shapes;
 			int contentOffset = 11 + (spritePair * shapes + shape) * height;
-			RECOIL_DecodeAtari8Player(self, content, contentOffset, content[3 + spritePair * 2], frame, frameOffset, height);
-			RECOIL_DecodeAtari8Player(self, content, contentOffset + shapes * height, content[4 + spritePair * 2], frame, frameOffset, height);
+			RECOIL_DecodeAtari8Player(self, content, contentOffset, content[3 + spritePair * 2], frame, frameOffset, height, true);
+			RECOIL_DecodeAtari8Player(self, content, contentOffset + shapes * height, content[4 + spritePair * 2], frame, frameOffset, height, true);
 		}
 		else
-			RECOIL_DecodeAtari8Player(self, content, 11 + shape * height, content[3 + shape / shapes], frame, frameOffset, height);
+			RECOIL_DecodeAtari8Player(self, content, 11 + shape * height, content[3 + shape / shapes], frame, frameOffset, height, false);
 	}
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
@@ -14722,8 +15599,8 @@ static bool RECOIL_DecodeApl(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_SetSize(self, frames * frameWidth, height, RECOILResolution_XE2X1);
 	uint8_t frame[27648] = { 0 };
 	for (int f = 0; f < frames; f++) {
-		RECOIL_DecodeAtari8Player(self, content, 42 + f * 48, content[7 + f], frame, f * frameWidth, height);
-		RECOIL_DecodeAtari8Player(self, content, 858 + f * 48, content[24 + f], frame, f * frameWidth + gap * 2, height);
+		RECOIL_DecodeAtari8Player(self, content, 42 + f * 48, content[7 + f], frame, f * frameWidth, height, true);
+		RECOIL_DecodeAtari8Player(self, content, 858 + f * 48, content[24 + f], frame, f * frameWidth + gap * 2, height, true);
 	}
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
@@ -14746,7 +15623,7 @@ static bool RECOIL_DecodeMcppVariable(RECOIL *self, uint8_t const *content, int 
 {
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_XE2X2))
 		return false;
-	uint8_t *frame = (uint8_t *) CiShared_Make(width * height, sizeof(uint8_t ), NULL, NULL);
+	uint8_t *frame = (uint8_t *) CiShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
 	RECOIL_SetPF012Bak(self, content, colorsOffset);
 	RECOIL_DecodeAtari8Gr15(self, content, bitmapOffset, width >> 3, frame, 0, width << 1, height >> 1);
 	RECOIL_SetPF012Bak(self, content, colorsOffset + 4);
@@ -15241,9 +16118,7 @@ static bool RECOIL_UnpackRip(const RECOIL *self, uint8_t const *content, int con
 	bitStream.base.contentOffset = contentOffset + 16 + 288;
 	bitStream.base.contentLength = contentLength;
 	for (int unpackedOffset = 0; unpackedOffset < unpackedLength;) {
-		switch (BitStream_ReadBit(&bitStream)) {
-		case -1:
-			return false;
+		switch (bitStream.vtbl->readBit(&bitStream)) {
 		case 0:
 			;
 			int literal = FanoTree_ReadCode(&literalTree, &bitStream);
@@ -15269,6 +16144,8 @@ static bool RECOIL_UnpackRip(const RECOIL *self, uint8_t const *content, int con
 			if (unpackedOffset >= unpackedLength)
 				return true;
 			break;
+		default:
+			return false;
 		}
 	}
 	return true;
@@ -15458,6 +16335,8 @@ static bool RECOIL_DecodeRm(RECOIL *self, uint8_t const *content, int contentLen
 		case 4:
 			RECOIL_DecodeAtari8Gr15(self, unpacked, y * 40, 40, frame, y * 320, 320, 1);
 			break;
+		default:
+			assert(false);
 		}
 		if (dliPresent[y]) {
 			int vcount = mode == 0 ? 16 + y : 16 + ((y - 1) >> 1);
@@ -15819,6 +16698,22 @@ static bool RECOIL_DecodeDlm(RECOIL *self, uint8_t const *content, int contentLe
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
 
+static void RECOIL_DecodeAtari8Gr0Screen(RECOIL *self, uint8_t const *content, uint8_t const *font)
+{
+	RECOIL_SetSize(self, 320, 192, RECOILResolution_XE1X1);
+	uint8_t frame[61440];
+	RECOIL_DecodeAtari8Gr0(self, content, 40, font, 0, frame);
+	RECOIL_ApplyAtari8Palette(self, frame);
+}
+
+static bool RECOIL_DecodeGr0(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength != 960)
+		return false;
+	RECOIL_DecodeAtari8Gr0Screen(self, content, CiResource_atari8_fnt);
+	return true;
+}
+
 static bool RECOIL_DecodeSge(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	if (contentLength != 960)
@@ -15829,10 +16724,8 @@ static bool RECOIL_DecodeSge(RECOIL *self, uint8_t const *content, int contentLe
 		font[1004 + i] = font[728 + i] = 15;
 		font[1000 + i] = font[732 + i] = 240;
 	}
-	RECOIL_SetSize(self, 320, 192, RECOILResolution_XE1X1);
-	uint8_t frame[61440];
-	RECOIL_DecodeAtari8Gr0(self, content, 40, font, 0, frame);
-	return RECOIL_ApplyAtari8Palette(self, frame);
+	RECOIL_DecodeAtari8Gr0Screen(self, content, font);
+	return true;
 }
 
 static bool RECOIL_DecodeAsciiArtEditor(RECOIL *self, uint8_t const *content, int contentLength)
@@ -15950,7 +16843,7 @@ static bool RECOIL_DecodeEnvisionCommon(RECOIL *self, uint8_t const *content, in
 	}
 	if (!RECOIL_SetSize(self, columns * charWidth, rows * charHeight, resolution))
 		return false;
-	uint8_t *frame = (uint8_t *) CiShared_Make(self->width * self->height, sizeof(uint8_t ), NULL, NULL);
+	uint8_t *frame = (uint8_t *) CiShared_Make(self->width * self->height, sizeof(uint8_t), NULL, NULL);
 	for (int row = 0; row < rows; row++) {
 		int fontOffset;
 		if (fontId2Offset != NULL) {
@@ -15974,6 +16867,8 @@ static bool RECOIL_DecodeEnvisionCommon(RECOIL *self, uint8_t const *content, in
 		case 3:
 			RECOIL_DecodeAtari8Gr1Line(self, content, charactersOffset, content, fontOffset, frame, frameOffset, mode & 1);
 			break;
+		default:
+			assert(false);
 		}
 		charactersOffset += columns;
 	}
@@ -16224,7 +17119,7 @@ static void RECOIL_DecodeIce20Frame(const RECOIL *self, uint8_t const *content, 
 {
 	uint8_t bitmap[32];
 	for (int y = 0; y < 288; y++) {
-		int row = y >> 3;
+		int row = y >> 5;
 		int c = (second ? row / 3 : row % 3) + 1;
 		for (int col = 0; col < 32; col++) {
 			int ch = ((y & 24) << 1) + (col >> 1);
@@ -16249,6 +17144,8 @@ static void RECOIL_DecodeIce20Frame(const RECOIL *self, uint8_t const *content, 
 		case 11:
 			RECOIL_DecodeAtari8Gr11(self, bitmap, 0, frame, y << 8, 0, 1);
 			break;
+		default:
+			assert(false);
 		}
 	}
 }
@@ -16732,6 +17629,8 @@ static bool RECOIL_DrawBlazingPaddlesVector(const RECOIL *self, uint8_t const *c
 			case 3:
 				frameOffset += self->width;
 				break;
+			default:
+				assert(false);
 			}
 		}
 	}
@@ -16901,8 +17800,11 @@ static bool RECOIL_FillSpc(uint8_t *pixels, int x, int y, int pattern)
 			x--;
 		while (x >= 0 && pixels[y * 160 + x] == 0);
 		int x1 = x;
-		while (x < 159 && pixels[y * 160 + ++x] == 0)
+		while (x < 159) {
+			if (pixels[y * 160 + ++x] != 0)
+				break;
 			RECOIL_PlotSpcPattern(pixels, x, y, pattern);
+		}
 		x = x1 + ((x - x1 + 1) >> 1);
 	}
 	return true;
@@ -17097,8 +17999,8 @@ static bool RECOIL_DecodeGed(RECOIL *self, uint8_t const *content, int contentLe
 	gtia.base.prior = prior;
 	for (int i = 0; i < 4; i++) {
 		GtiaRenderer_SetPlayerSize(&gtia.base, i, content[3290] >> ((3 - i) << 1));
-		gtia.base.playerHpos[i] = (uint8_t) ((48 + content[3295 + i]) & 255);
-		gtia.base.missileHpos[i] = (uint8_t) (((prior & 16) == 0 ? gtia.base.playerHpos[i] + (gtia.base.playerSize[i] << 3) : i == 0 ? 48 + content[3299] : gtia.base.missileHpos[i - 1] + (gtia.base.missileSize[i - 1] << 1)) & 255);
+		gtia.base.playerHpos[i] = (uint8_t) (48 + content[3295 + i]);
+		gtia.base.missileHpos[i] = (uint8_t) ((prior & 16) == 0 ? gtia.base.playerHpos[i] + (gtia.base.playerSize[i] << 3) : i == 0 ? 48 + content[3299] : gtia.base.missileHpos[i - 1] + (gtia.base.missileSize[i - 1] << 1));
 		gtia.base.colors[i] = (uint8_t) (content[3286 + i] & 254);
 	}
 	gtia.base.content = content;
@@ -17510,7 +18412,7 @@ static bool RECOIL_DecodeG2f(RECOIL *self, uint8_t const *content, int contentLe
 	if (contentLength < 11)
 		return false;
 	if (RECOIL_IsStringAt(content, 0, "G2FZLIB")) {
-		uint8_t *unpacked = (uint8_t *) CiShared_Make(327078, sizeof(uint8_t ), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) CiShared_Make(327078, sizeof(uint8_t), NULL, NULL);
 		InflateStream stream;
 		stream.base.content = content;
 		stream.base.contentOffset = 7;
@@ -17679,8 +18581,49 @@ static bool RECOIL_DecodePic(RECOIL *self, uint8_t const *content, int contentLe
 		return RECOIL_DecodeElectronika(self, content);
 	case 32000:
 		return RECOIL_DecodeDoo(self, content, contentLength);
+	case 32768:
+		return RECOIL_DecodeAppleIIShr(self, content, contentLength);
 	default:
 		return RECOIL_DecodeStPi(self, content, contentLength) || RECOIL_DecodeSc8(self, NULL, content, contentLength);
+	}
+}
+
+static bool RECOIL_DecodeScr(RECOIL *self, const char *filename, uint8_t const *content, int contentLength)
+{
+	switch (contentLength) {
+	case 960:
+		return RECOIL_DecodeGr0(self, content, contentLength);
+	case 1002:
+		return RECOIL_DecodeScrCol(self, filename, content, contentLength);
+	case 6144:
+		RECOIL_SetZx(self, RECOILResolution_SPECTRUM1X1);
+		RECOIL_DecodeZx(self, content, 0, -1, -3, 0);
+		return true;
+	case 6912:
+	case 6913:
+		RECOIL_SetZx(self, RECOILResolution_SPECTRUM1X1);
+		RECOIL_DecodeZx(self, content, 0, 6144, 3, 0);
+		return true;
+	case 6976:
+		RECOIL_SetUlaPlus(self, content, 6912);
+		RECOIL_DecodeZx(self, content, 0, 6144, 3, 0);
+		return true;
+	case 12288:
+		RECOIL_SetZx(self, RECOILResolution_TIMEX1X1);
+		RECOIL_DecodeZx(self, content, 0, 6144, -1, 0);
+		return true;
+	case 12289:
+		RECOIL_SetSize(self, 512, 384, RECOILResolution_TIMEX1X2);
+		RECOIL_DecodeTimexHires(self, content, 0, 0);
+		return true;
+	case 12352:
+		RECOIL_SetUlaPlus(self, content, 12288);
+		RECOIL_DecodeZx(self, content, 0, 6144, -1, 0);
+		return true;
+	case 32768:
+		return RECOIL_DecodeAppleIIShr(self, content, contentLength);
+	default:
+		return RECOIL_DecodeAmstradScr(self, filename, content, contentLength);
 	}
 }
 
@@ -17703,6 +18646,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	switch (RECOIL_GetPackedExt(filename)) {
 	case 540423474:
 	case 538976307:
+	case 825242163:
 	case 544498228:
 	case 543780148:
 	case 543977524:
@@ -17761,6 +18705,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 544567906:
 	case 543388514:
 	case 878931298:
+	case 544240482:
 	case 540107107:
 	case 540172643:
 	case 540238179:
@@ -17778,6 +18723,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 544368739:
 	case 544434275:
 	case 544106851:
+	case 543517795:
 	case 544238691:
 	case 540372323:
 	case 544238947:
@@ -17786,6 +18732,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 544370787:
 	case 544501859:
 	case 543650403:
+	case 544044131:
 	case 544503139:
 	case 543651683:
 	case 540303716:
@@ -17852,6 +18799,8 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 543386727:
 	case 544435303:
 	case 543453031:
+	case 540045927:
+	case 543388513:
 	case 540111463:
 	case 540176999:
 	case 540242535:
@@ -17860,6 +18809,9 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 540635751:
 	case 1882813031:
 	case 544240231:
+	case 538997607:
+	case 1936157033:
+	case 543896115:
 	case 544109927:
 	case 544039784:
 	case 543450472:
@@ -17971,13 +18923,19 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 543648109:
 	case 543975789:
 	case 544434541:
+	case 540109933:
 	case 543517805:
 	case 544500845:
+	case 543977581:
 	case 544239725:
+	case 543978349:
 	case 544240493:
 	case 544372077:
+	case 540113005:
 	case 544171374:
+	case 540241006:
 	case 544304238:
+	case 543783022:
 	case 544236399:
 	case 538976368:
 	case 540094832:
@@ -18073,6 +19031,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 543516531:
 	case 544761715:
 	case 540239987:
+	case 808464947:
 	case 543385715:
 	case 544237683:
 	case 544368755:
@@ -18136,6 +19095,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeIff(self, content, contentLength, RECOILResolution_AMIGA1X1) || RECOIL_Decode256(self, content, contentLength);
 	case 538976307:
 		return RECOIL_Decode3(self, content, contentLength);
+	case 825242163:
+		return RECOIL_Decode3201(self, content, contentLength);
 	case 544498228:
 		return RECOIL_Decode4bt(self, content, contentLength);
 	case 543780148:
@@ -18235,6 +19196,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 543388514:
 	case 878931298:
 		return RECOIL_DecodeBsc(self, content, contentLength);
+	case 544240482:
+		return RECOIL_DecodeBsp(self, content, contentLength);
 	case 540107107:
 	case 540172643:
 	case 540238179:
@@ -18263,6 +19226,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeChs(self, content, contentLength);
 	case 544106851:
 		return RECOIL_DecodeCin(self, content, contentLength);
+	case 543517795:
+		return RECOIL_DecodeCle(self, content, contentLength);
 	case 544238691:
 		return RECOIL_DecodeClp(self, content, contentLength);
 	case 540372323:
@@ -18279,6 +19244,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeCpt(self, filename, content, contentLength);
 	case 543650403:
 		return RECOIL_DecodeCrg(self, content, contentLength);
+	case 544044131:
+		return RECOIL_DecodeCtm(self, content, contentLength);
 	case 544503139:
 		return RECOIL_DecodeGr8Raw(self, content, contentLength, 96, 99);
 	case 543651683:
@@ -18404,6 +19371,9 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeGlYjk(self, NULL, content, contentLength);
 	case 543453031:
 		return RECOIL_DecodeGod(self, content, contentLength);
+	case 540045927:
+	case 543388513:
+		return RECOIL_DecodeGr0(self, content, contentLength);
 	case 540111463:
 		return RECOIL_DecodeGr1(self, content, contentLength, 0);
 	case 540176999:
@@ -18420,6 +19390,10 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeGr9p(self, content, contentLength);
 	case 544240231:
 		return RECOIL_DecodeSc2(self, content, contentLength);
+	case 538997607:
+	case 1936157033:
+	case 543896115:
+		return RECOIL_DecodeApfShr(self, content, contentLength);
 	case 544109927:
 		return RECOIL_DecodeGun(self, content, contentLength);
 	case 544039784:
@@ -18509,7 +19483,7 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 544435305:
 		return RECOIL_DecodeIls(self, content, contentLength);
 	case 543649129:
-		return RECOIL_DecodeStImg(self, content, contentLength) || RECOIL_DecodeZxImg(self, content, contentLength);
+		return RECOIL_DecodeStImg(self, content, contentLength) || RECOIL_DecodeZxImg(self, content, contentLength) || RECOIL_DecodeDaVinci(self, content, contentLength);
 	case 1735223668:
 	case 1735223672:
 		return RECOIL_DecodeStImg(self, content, contentLength);
@@ -18608,20 +19582,32 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return contentLength == 10022 && RECOIL_DecodeC64Multicolor(self, 320, content, 2022, 22, 1022, 0);
 	case 544434541:
 		return RECOIL_DecodeMis(self, content, contentLength);
+	case 540109933:
+		return RECOIL_DecodeMl1(self, content, contentLength);
 	case 543517805:
 		return RECOIL_DecodeMle(self, content, contentLength);
 	case 544500845:
 		return RECOIL_DecodeMcMlt(self, content, contentLength, 0);
+	case 543977581:
+		return RECOIL_DecodeMpl(self, content, contentLength);
 	case 544239725:
 		return RECOIL_DecodeMpp(self, content, contentLength);
+	case 543978349:
+		return RECOIL_DecodeMsl(self, content, contentLength);
 	case 544240493:
 		return RECOIL_DecodeMsp(self, content, contentLength);
 	case 544372077:
 		return RECOIL_DecodeMur(self, filename, content, contentLength);
+	case 540113005:
+		return RECOIL_DecodeMx1(self, content, contentLength);
 	case 544171374:
 		return RECOIL_DecodeNeo(self, filename, content, contentLength) || RECOIL_DecodeIff(self, content, contentLength, RECOILResolution_STE1X1);
+	case 540241006:
+		return RECOIL_DecodeNl3(self, content, contentLength);
 	case 544304238:
 		return RECOIL_DecodeNlq(self, content, contentLength);
+	case 543783022:
+		return RECOIL_DecodeNxi(self, content, contentLength);
 	case 544236399:
 		return RECOIL_DecodeOcp(self, content, contentLength);
 	case 538976368:
@@ -18695,7 +19681,7 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 543649136:
 		return RECOIL_DecodePmg(self, content, contentLength);
 	case 544501360:
-		return RECOIL_DecodePnt(self, content, contentLength) || RECOIL_DecodeMac(self, content, contentLength);
+		return RECOIL_DecodeFalconPnt(self, content, contentLength) || RECOIL_DecodeApfShr(self, content, contentLength) || RECOIL_DecodeMac(self, content, contentLength) || RECOIL_DecodeAppleIIShr(self, content, contentLength) || RECOIL_DecodePaintworks(self, content, contentLength);
 	case 538996848:
 		return RECOIL_DecodePp(self, content, contentLength);
 	case 543715440:
@@ -18788,13 +19774,14 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 544761715:
 		return RECOIL_DecodeSgx(self, content, contentLength);
 	case 540239987:
-		return RECOIL_DecodeSh3(self, content, contentLength);
+	case 808464947:
+		return RECOIL_DecodeApfShr(self, content, contentLength) || RECOIL_Decode3201(self, content, contentLength) || RECOIL_DecodeSh3(self, content, contentLength) || RECOIL_DecodeAppleIIShr(self, content, contentLength);
 	case 543385715:
 		return RECOIL_DecodeShc(self, content, contentLength);
 	case 544237683:
 		return RECOIL_DecodeShp(self, content, contentLength);
 	case 544368755:
-		return RECOIL_DecodeAppleIIShr(self, content, contentLength) || RECOIL_DecodeSh3(self, content, contentLength) || RECOIL_DecodeTrsShr(self, content, contentLength);
+		return RECOIL_DecodeApfShr(self, content, contentLength) || RECOIL_DecodeAppleIIShr(self, content, contentLength) || RECOIL_DecodeSh3(self, content, contentLength) || RECOIL_DecodeTrsShr(self, content, contentLength);
 	case 543582579:
 		return RECOIL_DecodeSif(self, content, contentLength);
 	case 544238451:
@@ -18804,7 +19791,7 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 543453299:
 		return RECOIL_DecodeSpd(self, content, contentLength);
 	case 544370803:
-		return RECOIL_DecodeSpr(self, content, contentLength);
+		return RECOIL_DecodeAppleSpr(self, content, contentLength) || RECOIL_DecodeAtari8Spr(self, content, contentLength);
 	case 544436339:
 		return RECOIL_DecodeSps(self, content, contentLength);
 	case 544567411:
@@ -18848,7 +19835,7 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 544829044:
 		return RECOIL_DecodeTny(self, content, contentLength);
 	case 543780980:
-		return RECOIL_DecodePnt(self, content, contentLength);
+		return RECOIL_DecodeFalconPnt(self, content, contentLength);
 	case 543519348:
 		return RECOIL_DecodeTre(self, content, contentLength);
 	case 544240244:
