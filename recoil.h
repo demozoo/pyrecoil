@@ -18,7 +18,7 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * RECOIL version - minor part.
  */
-#define RECOIL_VERSION_MINOR 0
+#define RECOIL_VERSION_MINOR 1
 
 /**
  * RECOIL version - micro part.
@@ -28,17 +28,17 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * RECOIL version as a string.
  */
-#define RECOIL_VERSION "5.0.0"
+#define RECOIL_VERSION "5.1.0"
 
 /**
  * Years RECOIL was created in.
  */
-#define RECOIL_YEARS "2009-2019"
+#define RECOIL_YEARS "2009-2020"
 
 /**
  * Short credits for RECOIL.
  */
-#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2019 Piotr Fusik and Adrian Matoga\n"
+#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2020 Piotr Fusik and Adrian Matoga\n"
 
 /**
  * Short license notice.
@@ -55,7 +55,7 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * Maximum width of a decoded image.
  */
-#define RECOIL_MAX_WIDTH 2560
+#define RECOIL_MAX_WIDTH 10000
 
 /**
  * Maximum height of a decoded image.
@@ -117,22 +117,23 @@ int RECOIL_GetOriginalHeight(const RECOIL *self);
  * <li>2 means the picture is displayed by quickly alternating two sub-pictures.</li>
  * <li>3 means the picture is displayed by alternating three sub-pictures.</li>
  * </ul>
- * 
  * @param self This <code>RECOIL</code>.
  */
 int RECOIL_GetFrames(const RECOIL *self);
 
 /**
- * Sets Atari 8-bit palette from a 768-byte array (256 times RGB).
+ * Sets Atari 8-bit palette.
  * @param self This <code>RECOIL</code>.
+ * @param content 768-byte array (256 times RGB).
  */
 void RECOIL_SetAtari8Palette(RECOIL *self, uint8_t const *content);
 
 /**
  * Checks whether the filename extension is supported by RECOIL.
  * <code>true</code> doesn't necessarily mean that the file contents is valid for RECOIL.
- * This function is meant to avoid reading files which are known to be not supported.
+ * This function is meant to avoid reading files which are known to be unsupported.
  * Another criterium is the maximum file size, <code>MaxContentLength</code>.
+ * @param filename Name of the file to be checked.
  */
 bool RECOIL_IsOurFile(const char *filename);
 
