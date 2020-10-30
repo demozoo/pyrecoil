@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.3.2 (2020-10-30)
+------------------
+
+* Updated RECOIL to 5.1.1 (Piotr Fusik)
+* Added unit tests (Matt Westcott)
+
+
 0.3.1 (2020-09-14)
 ------------------
 
