@@ -9,9 +9,10 @@ def readme():
 setup(
     name="pyrecoil",
     version="0.3.1",
-    packages=find_packages(),
+    packages=['recoil'],
     ext_modules=[recoil_module],
     include_package_data=True,
+    test_suite="tests",
 
     author="Matt Westcott",
     author_email="matt@west.co.tt",
