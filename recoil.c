@@ -197,6 +197,7 @@ typedef struct CciStream CciStream;
 typedef struct PackBitsStream PackBitsStream;
 typedef struct SpcStream SpcStream;
 typedef struct SpsStream SpsStream;
+typedef struct ArtMaster88Stream ArtMaster88Stream;
 typedef struct SrStream SrStream;
 typedef struct PacStream PacStream;
 typedef struct XlpStream XlpStream;
@@ -382,6 +383,8 @@ struct Mx1Stream {
 	uint8_t decodeTable[256];
 };
 static void Mx1Stream_Construct(Mx1Stream *self);
+
+static bool Mx1Stream_FindImage(Mx1Stream *self);
 
 static int Mx1Stream_ReadBit(Mx1Stream *self);
 
@@ -644,6 +647,16 @@ struct SpsStream {
 static void SpsStream_Construct(SpsStream *self);
 
 static bool SpsStream_ReadCommand(SpsStream *self);
+
+struct ArtMaster88Stream {
+	RleStream base;
+	int escape;
+};
+static void ArtMaster88Stream_Construct(ArtMaster88Stream *self);
+
+static bool ArtMaster88Stream_ReadCommand(ArtMaster88Stream *self);
+
+static bool ArtMaster88Stream_SkipChunk(ArtMaster88Stream *self);
 
 struct SrStream {
 	RleStream base;
@@ -1515,15 +1528,21 @@ static bool RECOIL_DecodeX68KPicScreen(RECOIL *self, X68KPicStream *stream, int 
 
 static bool RECOIL_DecodeX68KPic(RECOIL *self, uint8_t const *content, int contentLength);
 
+static void RECOIL_SetPc88EightPixels(RECOIL *self, int column, int y, int b);
+
 static bool RECOIL_DecodeDaVinci(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeArtMaster88(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeNl3(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeMl1Chain(RECOIL *self, X68KPicStream *stream, int pixelsOffset, int rgb);
 
-static bool RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream);
+static int RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream, int imageOffset);
 
 static bool RECOIL_DecodeMl1(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeMx1Tiles(RECOIL *self, Mx1Stream *stream, int width, int height, int shift);
 
 static bool RECOIL_DecodeMx1(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -2871,6 +2890,24 @@ static void Mx1Stream_Construct(Mx1Stream *self)
 	}
 }
 
+static bool Mx1Stream_FindImage(Mx1Stream *self)
+{
+	for (;;) {
+		int lineOffset = self->base.base.base.contentOffset;
+		for (;;) {
+			int c = Stream_ReadByte(&self->base.base.base);
+			if (c < 0)
+				return false;
+			if (c == 13 || c == 10)
+				break;
+		}
+		if (self->base.base.base.contentOffset - lineOffset >= 17 && RECOIL_IsStringAt(self->base.base.base.content, lineOffset, "@@@ ") && RECOIL_IsStringAt(self->base.base.base.content, self->base.base.base.contentOffset - 11, "lines) @@@")) {
+			self->base.base.bits = 0;
+			return true;
+		}
+	}
+}
+
 static int Mx1Stream_ReadBit(Mx1Stream *self)
 {
 	if ((self->base.base.bits & 63) == 0) {
@@ -3719,6 +3756,48 @@ static bool SpsStream_ReadCommand(SpsStream *self)
 		self->base.repeatCount = b - 127;
 		self->base.repeatValue = -1;
 	}
+	return true;
+}
+
+static void ArtMaster88Stream_Construct(ArtMaster88Stream *self)
+{
+	RleStream_Construct(&self->base);
+	static const RleStreamVtbl vtbl = {
+		BitStream_ReadBit,
+		(bool (*)(RleStream *self)) ArtMaster88Stream_ReadCommand,
+		RleStream_ReadValue,
+	};
+	self->base.base.vtbl = (const BitStreamVtbl *) &vtbl;
+	self->escape = -1;
+}
+
+static bool ArtMaster88Stream_ReadCommand(ArtMaster88Stream *self)
+{
+	int b = Stream_ReadByte(&self->base.base.base);
+	if (b < 0)
+		return false;
+	if (b == self->escape) {
+		b = Stream_ReadByte(&self->base.base.base);
+		if (b < 0)
+			return false;
+		self->base.repeatCount = (b - 1) & 255;
+		self->escape = -1;
+	}
+	else {
+		self->base.repeatCount = 1;
+		self->escape = self->base.repeatValue = b;
+	}
+	return true;
+}
+
+static bool ArtMaster88Stream_SkipChunk(ArtMaster88Stream *self)
+{
+	if (self->base.base.base.contentOffset + 1 >= self->base.base.base.contentLength)
+		return false;
+	int length = self->base.base.base.content[self->base.base.base.contentOffset] | self->base.base.base.content[self->base.base.base.contentOffset + 1] << 8;
+	if (length < 2)
+		return false;
+	self->base.base.base.contentOffset += length;
 	return true;
 }
 
@@ -4586,6 +4665,7 @@ static bool DeepStream_ReadDeltaLine(DeepStream *self, int width, int tvdcOffset
 static void PackBytesStream_Construct(PackBytesStream *self)
 {
 	self->count = 1;
+	self->pattern = 0;
 }
 
 static int PackBytesStream_ReadUnpacked(PackBytesStream *self)
@@ -7446,7 +7526,7 @@ static void RECOIL_DecodeAmstradMode1Line(RECOIL *self, uint8_t const *content, 
 {
 	for (int x = 0; x < self->width; x++) {
 		int b = content[lineOffset + (x >> 2)] >> (~x & 3);
-		self->pixels[y * self->width + x] = self->contentPalette[(b >> 3 & 2) + (b & 1)];
+		self->pixels[y * self->width + x] = self->contentPalette[((b & 1) << 1) + (b >> 4 & 1)];
 	}
 }
 
@@ -9655,28 +9735,64 @@ static bool RECOIL_DecodeX68KPic(RECOIL *self, uint8_t const *content, int conte
 	return RECOIL_DecodeX68KPicScreen(self, &stream, pixelsLength, 0, depth);
 }
 
+static void RECOIL_SetPc88EightPixels(RECOIL *self, int column, int y, int b)
+{
+	for (int x = 0; x < 8; x++) {
+		int offset = y * 1280 + column + x;
+		self->pixels[offset + 640] = self->pixels[offset] = (b >> (7 - x) & 65793) * 255;
+	}
+}
+
 static bool RECOIL_DecodeDaVinci(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	if ((contentLength & 255) != 0)
 		return false;
 	RECOIL_SetSize(self, 640, 400, RECOILResolution_PC881X2);
-	DaVinciStream stream;
-	DaVinciStream_Construct(&stream);
-	stream.base.base.base.content = content;
-	stream.base.base.base.contentOffset = 0;
-	stream.base.base.base.contentLength = contentLength;
+	DaVinciStream rle;
+	DaVinciStream_Construct(&rle);
+	rle.base.base.base.content = content;
+	rle.base.base.base.contentOffset = 0;
+	rle.base.base.base.contentLength = contentLength;
 	for (int y = 0; y < 200; y++) {
 		for (int column = 0; column < 640; column += 8) {
-			int b = RleStream_ReadRle(&stream.base);
+			int b = RleStream_ReadRle(&rle.base);
 			if (b < 0)
 				return false;
-			for (int x = 0; x < 8; x++) {
-				int offset = y * 1280 + column + x;
-				self->pixels[offset + 640] = self->pixels[offset] = (b >> (7 - x) & 65793) * 255;
-			}
+			RECOIL_SetPc88EightPixels(self, column, y, b);
 		}
 	}
-	return stream.base.repeatCount == 0 && contentLength - stream.base.base.base.contentOffset < 256;
+	return rle.base.repeatCount == 0 && contentLength - rle.base.base.base.contentOffset < 256;
+}
+
+static bool RECOIL_DecodeArtMaster88(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 42 || !RECOIL_IsStringAt(content, 0, "SS_SIF    0.0") || content[17] != 32 || content[19] != 66 || content[20] != 82 || content[21] != 71 || content[24] != 128 || content[25] != 2 || content[26] != 200 || content[27] != 0)
+		return false;
+	RECOIL_SetSize(self, 640, 400, RECOILResolution_PC881X2);
+	ArtMaster88Stream rle;
+	ArtMaster88Stream_Construct(&rle);
+	rle.base.base.base.content = content;
+	rle.base.base.base.contentOffset = 40;
+	rle.base.base.base.contentLength = contentLength;
+	if (content[16] == 73 && !ArtMaster88Stream_SkipChunk(&rle))
+		return false;
+	if (content[18] == 66 && !ArtMaster88Stream_SkipChunk(&rle))
+		return false;
+	uint8_t blue[16000];
+	uint8_t red[16000];
+	if (!RleStream_Unpack(&rle.base, blue, 0, 1, 16000) || !RleStream_Unpack(&rle.base, red, 0, 1, 16000))
+		return false;
+	int offset = 0;
+	for (int y = 0; y < 200; y++) {
+		for (int column = 0; column < 640; column += 8) {
+			int g = RleStream_ReadRle(&rle.base);
+			if (g < 0)
+				return false;
+			RECOIL_SetPc88EightPixels(self, column, y, red[offset] << 16 | g << 8 | blue[offset]);
+			offset++;
+		}
+	}
+	return true;
 }
 
 static bool RECOIL_DecodeNl3(RECOIL *self, uint8_t const *content, int contentLength)
@@ -9749,17 +9865,17 @@ static bool RECOIL_DecodeMl1Chain(RECOIL *self, X68KPicStream *stream, int pixel
 	}
 }
 
-static bool RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream)
+static int RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream, int imageOffset)
 {
 	if (BitStream_ReadBits(&stream->base, 32) != 825241626 || BitStream_ReadBits(&stream->base, 32) < 0 || BitStream_ReadBits(&stream->base, 16) < 0)
-		return false;
-	int startX = BitStream_ReadBits(&stream->base, 16);
-	int startY = BitStream_ReadBits(&stream->base, 16);
-	int width = BitStream_ReadBits(&stream->base, 16) - startX + 1;
-	int height = BitStream_ReadBits(&stream->base, 16) - startY + 1;
+		return -1;
+	int left = BitStream_ReadBits(&stream->base, 16);
+	int top = BitStream_ReadBits(&stream->base, 16);
+	int width = BitStream_ReadBits(&stream->base, 16) - left + 1;
+	int height = BitStream_ReadBits(&stream->base, 16) - top + 1;
 	for (int i = 0; i < 624; i++) {
 		if (stream->base.vtbl->readBit(&stream->base) < 0)
-			return false;
+			return -1;
 	}
 	int mode = BitStream_ReadBits(&stream->base, 2);
 	int lastColor;
@@ -9772,10 +9888,13 @@ static bool RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream)
 		lastColor = BitStream_ReadBits(&stream->base, 7);
 		break;
 	default:
-		return false;
+		return -1;
 	}
-	if (!RECOIL_SetSize(self, width, height, RECOILResolution_PC981X1))
-		return false;
+	if (imageOffset == -1) {
+		if (!RECOIL_SetSize(self, width, height, RECOILResolution_PC981X1))
+			return -1;
+		imageOffset = 0;
+	}
 	memset(self->contentPalette, 0, sizeof(self->contentPalette));
 	for (int i = 0; i <= lastColor; i++) {
 		int j = 0;
@@ -9783,41 +9902,48 @@ static bool RECOIL_DecodeMl1Mx1(RECOIL *self, X68KPicStream *stream)
 			j = BitStream_ReadBits(&stream->base, 7);
 		int c = BitStream_ReadBits(&stream->base, 10);
 		if (c < 0 || c >= 729)
-			return false;
+			return -1;
 		self->contentPalette[mode == 1 ? j : i] = RECOIL_Get729Color(c);
 	}
-	int pixelsLength = width * height;
-	for (int pixelsOffset = 0; pixelsOffset < pixelsLength; pixelsOffset++)
-		self->pixels[pixelsOffset] = 1;
-	for (int pixelsOffset = 0; pixelsOffset < pixelsLength;) {
-		int distance = X68KPicStream_ReadLength(stream);
-		if (distance < 0 || pixelsOffset + distance > pixelsLength)
-			return false;
-		int c = mode == 2 ? X68KPicStream_ReadLength(stream) - 1 : BitStream_ReadBits(&stream->base, 7);
-		if (c < 0 || c >= 128)
-			return false;
-		int rgb = self->contentPalette[c];
-		switch (stream->base.vtbl->readBit(&stream->base)) {
-		case 0:
-			break;
-		case 1:
-			if (!RECOIL_DecodeMl1Chain(self, stream, pixelsOffset, rgb))
-				return false;
-			break;
-		default:
-			return false;
-		}
-		self->pixels[pixelsOffset++] = rgb;
-		while (--distance > 0) {
-			int old = self->pixels[pixelsOffset];
-			if (old == 1)
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++)
+			self->pixels[imageOffset + y * self->width + x] = 1;
+	}
+	int distance = 1;
+	int rgb = 0;
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			int pixelsOffset = imageOffset + y * self->width + x;
+			if (--distance > 0) {
+				int old = self->pixels[pixelsOffset];
+				if (old == 1)
+					self->pixels[pixelsOffset] = rgb;
+				else
+					rgb = old;
+			}
+			else {
+				distance = X68KPicStream_ReadLength(stream);
+				if (distance < 0)
+					return -1;
+				int c = mode == 2 ? X68KPicStream_ReadLength(stream) - 1 : BitStream_ReadBits(&stream->base, 7);
+				if (c < 0 || c >= 128)
+					return -1;
+				rgb = self->contentPalette[c];
+				switch (stream->base.vtbl->readBit(&stream->base)) {
+				case 0:
+					break;
+				case 1:
+					if (!RECOIL_DecodeMl1Chain(self, stream, pixelsOffset, rgb))
+						return -1;
+					break;
+				default:
+					return -1;
+				}
 				self->pixels[pixelsOffset] = rgb;
-			else
-				rgb = old;
-			pixelsOffset++;
+			}
 		}
 	}
-	return X68KPicStream_ReadLength(stream) == pixelsLength + 1;
+	return distance == 1 && X68KPicStream_ReadLength(stream) == width * height + 1 ? height : -1;
 }
 
 static bool RECOIL_DecodeMl1(RECOIL *self, uint8_t const *content, int contentLength)
@@ -9827,30 +9953,73 @@ static bool RECOIL_DecodeMl1(RECOIL *self, uint8_t const *content, int contentLe
 	stream.base.base.content = content;
 	stream.base.base.contentOffset = 0;
 	stream.base.base.contentLength = contentLength;
-	return RECOIL_DecodeMl1Mx1(self, &stream);
+	return RECOIL_DecodeMl1Mx1(self, &stream, -1) > 0;
+}
+
+static bool RECOIL_DecodeMx1Tiles(RECOIL *self, Mx1Stream *stream, int width, int height, int shift)
+{
+	if (!RECOIL_SetSize(self, width << shift, height << shift, RECOILResolution_PC981X1))
+		return false;
+	for (int y = 0; y < self->height; y += height) {
+		for (int x = 0; x < self->width; x += width) {
+			if (!Mx1Stream_FindImage(stream) || RECOIL_DecodeMl1Mx1(self, &stream->base, y * self->width + x) < 0)
+				return false;
+		}
+	}
+	return true;
 }
 
 static bool RECOIL_DecodeMx1(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	int contentOffset = 0;
-	for (;;) {
-		int lineOffset = contentOffset;
-		for (;;) {
-			if (contentOffset >= contentLength)
-				return false;
-			int c = content[contentOffset++];
-			if (c == 13 || c == 10)
-				break;
-		}
-		if (contentOffset - lineOffset >= 17 && RECOIL_IsStringAt(content, lineOffset, "@@@ ") && RECOIL_IsStringAt(content, contentOffset - 8, "es) @@@"))
-			break;
-	}
 	Mx1Stream stream;
 	Mx1Stream_Construct(&stream);
 	stream.base.base.base.content = content;
-	stream.base.base.base.contentOffset = contentOffset;
+	stream.base.base.base.contentOffset = 0;
 	stream.base.base.base.contentLength = contentLength;
-	return RECOIL_DecodeMl1Mx1(self, &stream.base);
+	if (!Mx1Stream_FindImage(&stream) || RECOIL_DecodeMl1Mx1(self, &stream.base, -1) < 0)
+		return false;
+	if (!Mx1Stream_FindImage(&stream))
+		return true;
+	int sameSizeImages = 1;
+	int width = self->width;
+	int height = self->height;
+	do {
+		if (RECOIL_DecodeMl1Mx1(self, &stream.base, -1) < 0)
+			return false;
+		if (sameSizeImages > 0 && self->width == width && self->height == height)
+			sameSizeImages++;
+		else {
+			if (width < self->width)
+				width = self->width;
+			if (sameSizeImages > 0) {
+				height *= sameSizeImages;
+				sameSizeImages = 0;
+			}
+			height += self->height;
+		}
+	}
+	while (Mx1Stream_FindImage(&stream));
+	stream.base.base.base.contentOffset = 0;
+	switch (sameSizeImages) {
+	case 4:
+		return RECOIL_DecodeMx1Tiles(self, &stream, width, height, 1);
+	case 16:
+		return RECOIL_DecodeMx1Tiles(self, &stream, width, height, 2);
+	case 0:
+		break;
+	default:
+		height *= sameSizeImages;
+		break;
+	}
+	if (!RECOIL_SetSize(self, width, height, RECOILResolution_PC981X1))
+		return false;
+	int pixelsLength = width * height;
+	for (int pixelsOffset = 0; pixelsOffset < pixelsLength; pixelsOffset++)
+		self->pixels[pixelsOffset] = 0;
+	int imageOffset = 0;
+	while (Mx1Stream_FindImage(&stream))
+		imageOffset += RECOIL_DecodeMl1Mx1(self, &stream.base, imageOffset) * width;
+	return true;
 }
 
 static int RECOIL_UnpackZim(uint8_t const *content, int contentOffset, int end, uint8_t const *flags, uint8_t *unpacked, int unpackedLength)
@@ -19483,7 +19652,7 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 544435305:
 		return RECOIL_DecodeIls(self, content, contentLength);
 	case 543649129:
-		return RECOIL_DecodeStImg(self, content, contentLength) || RECOIL_DecodeZxImg(self, content, contentLength) || RECOIL_DecodeDaVinci(self, content, contentLength);
+		return RECOIL_DecodeStImg(self, content, contentLength) || RECOIL_DecodeZxImg(self, content, contentLength) || RECOIL_DecodeArtMaster88(self, content, contentLength) || RECOIL_DecodeDaVinci(self, content, contentLength);
 	case 1735223668:
 	case 1735223672:
 		return RECOIL_DecodeStImg(self, content, contentLength);
