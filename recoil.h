@@ -18,27 +18,27 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * RECOIL version - minor part.
  */
-#define RECOIL_VERSION_MINOR 1
+#define RECOIL_VERSION_MINOR 2
 
 /**
  * RECOIL version - micro part.
  */
-#define RECOIL_VERSION_MICRO 1
+#define RECOIL_VERSION_MICRO 0
 
 /**
  * RECOIL version as a string.
  */
-#define RECOIL_VERSION "6.1.1"
+#define RECOIL_VERSION "6.2.0"
 
 /**
  * Years RECOIL was created in.
  */
-#define RECOIL_YEARS "2009-2021"
+#define RECOIL_YEARS "2009-2022"
 
 /**
  * Short credits for RECOIL.
  */
-#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2021 Piotr Fusik\n"
+#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2022 Piotr Fusik\n"
 
 /**
  * Short license notice.
@@ -54,7 +54,7 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * Maximum length of a string returned by <code>GetPlatform()</code>.
  */
-#define RECOIL_MAX_PLATFORM_LENGTH 21
+#define RECOIL_MAX_PLATFORM_LENGTH 22
 
 /**
  * Selects the PAL/NTSC video standard for applicable platforms.
@@ -75,7 +75,7 @@ bool RECOIL_IsNtsc(const RECOIL *self);
  * 
  * <ul>
  * <li>768-byte <code>ACT</code>/<code>PAL</code> file with an Atari 8-bit palette</li>
- * <li><code>VPL</code> VICE Palette file with a C64 palette</li>
+ * <li><code>VPL</code> VICE Palette file with a C64 or C16 palette</li>
  * </ul>
  * <p>Returns <code>true</code> on success.
  * @param self This <code>RECOIL</code>.
