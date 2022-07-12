@@ -1,0 +1,32 @@
+name: pyrecoil CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python: '3.7'
+          - python: '3.8'
+          - python: '3.9'
+          - python: '3.10'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Pillow
+        run: |
+          python -m pip install Pillow
+      - name: Test
+        run: |
+          python ./setup.py build
+          python ./setup.py test
