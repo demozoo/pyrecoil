@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="pyrecoil",
-    version="0.3.3",
+    version="0.3.4",
     packages=['recoil'],
     ext_modules=[recoil_module],
     include_package_data=True,
@@ -18,14 +18,12 @@ setup(
     author_email="matt@west.co.tt",
     description="Python bindings for RECOIL, the Retro Computer Image Library",
     long_description=readme(),
+    python_requires=">=3.7",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Topic :: Multimedia :: Graphics",
         "Topic :: Multimedia :: Graphics :: Graphics Conversion",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
