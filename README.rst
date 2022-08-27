@@ -1,7 +1,7 @@
 pyrecoil
 ========
 
-*pyrecoil* provides Python bindings to `RECOIL <http://recoil.sourceforge.net/>`_, the Retro Computer Image Library, allowing you to open over 400 image file formats from retro computers.
+*pyrecoil* provides Python bindings to `RECOIL <http://recoil.sourceforge.net/>`_, the Retro Computer Image Library, allowing you to open over 500 image file formats from retro computers.
 
 Installation
 ~~~~~~~~~~~~
