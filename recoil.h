@@ -18,17 +18,17 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * RECOIL version - minor part.
  */
-#define RECOIL_VERSION_MINOR 2
+#define RECOIL_VERSION_MINOR 3
 
 /**
  * RECOIL version - micro part.
  */
-#define RECOIL_VERSION_MICRO 0
+#define RECOIL_VERSION_MICRO 1
 
 /**
  * RECOIL version as a string.
  */
-#define RECOIL_VERSION "6.2.0"
+#define RECOIL_VERSION "6.3.1"
 
 /**
  * Years RECOIL was created in.
