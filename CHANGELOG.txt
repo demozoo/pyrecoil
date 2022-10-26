@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.3.5 (2022-10-26)
+------------------
+
+* Updated RECOIL to 6.3.1 (Piotr Fusik)
+* Added support for Python 3.11 (Matt Westcott)
+
+
 0.3.4 (2022-07-12)
 ------------------
 
