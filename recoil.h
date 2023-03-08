@@ -23,22 +23,22 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * RECOIL version - micro part.
  */
-#define RECOIL_VERSION_MICRO 2
+#define RECOIL_VERSION_MICRO 3
 
 /**
  * RECOIL version as a string.
  */
-#define RECOIL_VERSION "6.3.2"
+#define RECOIL_VERSION "6.3.3"
 
 /**
  * Years RECOIL was created in.
  */
-#define RECOIL_YEARS "2009-2022"
+#define RECOIL_YEARS "2009-2023"
 
 /**
  * Short credits for RECOIL.
  */
-#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2022 Piotr Fusik\n"
+#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2023 Piotr Fusik\n"
 
 /**
  * Short license notice.
