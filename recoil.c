@@ -1,10 +1,10 @@
-// Generated automatically with "cito". Do not edit.
+// Generated automatically with "fut". Do not edit.
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "recoil.h"
 
-static char *CiString_Substring(const char *str, int len)
+static char *FuString_Substring(const char *str, int len)
 {
 	char *p = malloc(len + 1);
 	memcpy(p, str, len);
@@ -12,7 +12,7 @@ static char *CiString_Substring(const char *str, int len)
 	return p;
 }
 
-static void CiString_AppendSubstring(char **str, const char *suffix, size_t suffixLen)
+static void FuString_AppendSubstring(char **str, const char *suffix, size_t suffixLen)
 {
 	if (suffixLen == 0)
 		return;
@@ -22,22 +22,22 @@ static void CiString_AppendSubstring(char **str, const char *suffix, size_t suff
 	(*str)[prefixLen + suffixLen] = '\0';
 }
 
-static void CiString_Append(char **str, const char *suffix)
+static void FuString_Append(char **str, const char *suffix)
 {
-	CiString_AppendSubstring(str, suffix, strlen(suffix));
+	FuString_AppendSubstring(str, suffix, strlen(suffix));
 }
 
-typedef void (*CiMethodPtr)(void *);
+typedef void (*FuMethodPtr)(void *);
 typedef struct {
 	size_t count;
 	size_t unitSize;
 	size_t refCount;
-	CiMethodPtr destructor;
-} CiShared;
+	FuMethodPtr destructor;
+} FuShared;
 
-static void *CiShared_Make(size_t count, size_t unitSize, CiMethodPtr constructor, CiMethodPtr destructor)
+static void *FuShared_Make(size_t count, size_t unitSize, FuMethodPtr constructor, FuMethodPtr destructor)
 {
-	CiShared *self = (CiShared *) malloc(sizeof(CiShared) + count * unitSize);
+	FuShared *self = (FuShared *) malloc(sizeof(FuShared) + count * unitSize);
 	self->count = count;
 	self->unitSize = unitSize;
 	self->refCount = 1;
@@ -49,11 +49,11 @@ static void *CiShared_Make(size_t count, size_t unitSize, CiMethodPtr constructo
 	return self + 1;
 }
 
-static void CiShared_Release(void *ptr)
+static void FuShared_Release(void *ptr)
 {
 	if (ptr == NULL)
 		return;
-	CiShared *self = (CiShared *) ptr - 1;
+	FuShared *self = (FuShared *) ptr - 1;
 	if (--self->refCount != 0)
 		return;
 	if (self->destructor != NULL) {
@@ -63,13 +63,13 @@ static void CiShared_Release(void *ptr)
 	free(self);
 }
 
-static void CiShared_Assign(void **ptr, void *value)
+static void FuShared_Assign(void **ptr, void *value)
 {
-	CiShared_Release(*ptr);
+	FuShared_Release(*ptr);
 	*ptr = value;
 }
 
-static int CiCompare_int(const void *pa, const void *pb)
+static int FuCompare_int(const void *pa, const void *pb)
 {
 	int a = *(const int *) pa;
 	int b = *(const int *) pb;
@@ -1842,6 +1842,16 @@ static bool RECOIL_DecodeDaVinci(RECOIL *self, uint8_t const *content, int conte
 
 static bool RECOIL_DecodeArtMaster88(RECOIL *self, uint8_t const *content, int contentLength);
 
+static int RECOIL_GetKtyTile(uint8_t const *content, int contentOffset);
+
+static void RECOIL_SetKtyFourPixels(RECOIL *self, int pixelsOffset, int tile);
+
+static void RECOIL_SetKtyTileOffset(RECOIL *self, int pixelsOffset, int mode, uint8_t const *content, int tileOffset);
+
+static void RECOIL_SetKtyTile(RECOIL *self, int x, int y, int mode, uint8_t const *content, int tileOffset);
+
+static bool RECOIL_DecodeKty(RECOIL *self, uint8_t const *content, int contentLength);
+
 static bool RECOIL_DecodeEbd(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeNl3(RECOIL *self, uint8_t const *content, int contentLength);
@@ -1925,9 +1935,9 @@ static bool RECOIL_DecodeJj(RECOIL *self, uint8_t const *content, int contentLen
 
 static bool RECOIL_DecodeDd(RECOIL *self, uint8_t const *content, int contentLength);
 
-static int RECOIL_GetC64Multicolor(const RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int x, int y);
+static int RECOIL_GetC64Multicolor(const RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int x, int y, int strideColumns);
 
-static void RECOIL_DecodeC64MulticolorLine(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int y, int pixelsOffset);
+static void RECOIL_DecodeC64MulticolorLine(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int y, int pixelsOffset, int width, int strideColumns);
 
 static void RECOIL_DecodeC64MulticolorFrame(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int backgroundOffset, int pixelsOffset);
 
@@ -2049,13 +2059,21 @@ static bool RECOIL_DecodeA(RECOIL *self, uint8_t const *content, int contentLeng
 
 static bool RECOIL_DecodeSpd(RECOIL *self, uint8_t const *content, int contentLength);
 
-static bool RECOIL_DecodePetScreen(RECOIL *self, uint8_t const *content, int screenOffset, int colorsOffset, int backgroundOffset, int columns, int rows);
+static int RECOIL_GetAtari8Gr0Pixel(uint8_t const *font, int fontOffset, int ch, int x, int y);
+
+static bool RECOIL_DecodePetScreenCustom(RECOIL *self, uint8_t const *content, int screenOffset, int fontOffset, uint8_t const *colors, int colorsOffset, int background, int columns, int rows);
+
+static bool RECOIL_DecodePetScreen(RECOIL *self, uint8_t const *content, int screenOffset, int colorsOffset, int background, int columns, int rows);
 
 static bool RECOIL_DecodePet(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodePdr(RECOIL *self, uint8_t const *content, int contentLength);
 
+static bool RECOIL_DecodePbot(RECOIL *self, uint8_t const *content, int contentLength);
+
 static bool RECOIL_DecodeScrCol(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeCgx(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeFpr(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -2828,7 +2846,7 @@ static void RECOIL_CalculatePalette(RECOIL *self);
  */
 static int RECOIL_FindInSortedPalette(const RECOIL *self, int rgb);
 
-static const uint8_t CiResource_altirrantsc_pal[768] = {
+static const uint8_t FuResource_altirrantsc_pal[768] = {
 	0, 0, 0, 1, 1, 1, 22, 21, 23, 42, 41, 43, 62, 60, 63, 81,
 	78, 83, 103, 100, 106, 122, 118, 124, 131, 126, 133, 149, 144, 152, 170, 164,
 	173, 188, 181, 192, 205, 198, 210, 223, 215, 227, 243, 235, 248, 255, 252, 255,
@@ -2877,7 +2895,7 @@ static const uint8_t CiResource_altirrantsc_pal[768] = {
 	3, 0, 0, 25, 7, 0, 50, 30, 0, 70, 48, 0, 90, 67, 0, 109,
 	84, 0, 132, 105, 0, 150, 122, 0, 159, 131, 0, 177, 148, 13, 199, 168,
 	49, 217, 185, 72, 234, 202, 93, 252, 219, 113, 255, 239, 136, 255, 255, 155 };
-static const uint8_t CiResource_altirrapal_pal[768] = {
+static const uint8_t FuResource_altirrapal_pal[768] = {
 	0, 0, 0, 17, 17, 17, 34, 34, 34, 51, 51, 51, 68, 68, 68, 85,
 	85, 85, 102, 102, 102, 119, 119, 119, 136, 136, 136, 153, 153, 153, 170, 170,
 	170, 187, 187, 187, 204, 204, 204, 221, 221, 221, 238, 238, 238, 255, 255, 255,
@@ -2926,7 +2944,7 @@ static const uint8_t CiResource_altirrapal_pal[768] = {
 	63, 0, 0, 80, 5, 0, 97, 22, 0, 114, 39, 0, 131, 56, 0, 148,
 	73, 0, 165, 90, 1, 182, 107, 18, 199, 124, 35, 216, 141, 52, 233, 158,
 	69, 250, 175, 86, 255, 192, 103, 255, 209, 120, 255, 226, 137, 255, 243, 154 };
-static const uint8_t CiResource_atari8_fnt[1024] = {
+static const uint8_t FuResource_atari8_fnt[1024] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 24, 24, 24, 0, 24, 0,
 	0, 102, 102, 102, 0, 0, 0, 0, 0, 102, 255, 102, 102, 255, 102, 0,
 	24, 62, 96, 60, 6, 124, 24, 0, 0, 102, 108, 24, 48, 102, 70, 0,
@@ -2991,7 +3009,7 @@ static const uint8_t CiResource_atari8_fnt[1024] = {
 	0, 0, 126, 12, 24, 48, 126, 0, 0, 24, 60, 126, 126, 24, 60, 0,
 	24, 24, 24, 24, 24, 24, 24, 24, 0, 126, 120, 124, 110, 102, 6, 0,
 	8, 24, 56, 120, 56, 24, 8, 0, 16, 24, 28, 30, 28, 24, 16, 0 };
-static const uint8_t CiResource_c16_pal[384] = {
+static const uint8_t FuResource_c16_pal[384] = {
 	3, 3, 3, 47, 47, 47, 104, 16, 16, 0, 66, 66, 88, 0, 109, 0,
 	78, 0, 25, 28, 148, 56, 56, 0, 86, 32, 0, 75, 40, 0, 22, 72,
 	0, 105, 7, 47, 0, 70, 38, 6, 42, 128, 42, 20, 155, 11, 73, 0,
@@ -3016,7 +3034,7 @@ static const uint8_t CiResource_c16_pal[384] = {
 	3, 3, 3, 249, 249, 249, 255, 246, 242, 209, 255, 255, 255, 233, 255, 219,
 	255, 211, 240, 255, 255, 255, 255, 163, 255, 255, 193, 255, 255, 178, 252, 255,
 	162, 255, 238, 255, 209, 255, 255, 235, 255, 255, 255, 248, 255, 237, 255, 188 };
-static const uint8_t CiResource_c64_fnt[2048] = {
+static const uint8_t FuResource_c64_fnt[1024] = {
 	60, 102, 110, 110, 96, 98, 60, 0, 24, 60, 102, 126, 102, 102, 102, 0,
 	124, 102, 102, 124, 102, 102, 124, 0, 60, 102, 96, 96, 96, 102, 60, 0,
 	120, 108, 102, 102, 102, 108, 120, 0, 126, 96, 96, 120, 96, 96, 126, 0,
@@ -3080,72 +3098,8 @@ static const uint8_t CiResource_c64_fnt[2048] = {
 	255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255,
 	3, 3, 3, 3, 3, 3, 255, 255, 0, 0, 0, 0, 240, 240, 240, 240,
 	15, 15, 15, 15, 0, 0, 0, 0, 24, 24, 24, 248, 248, 0, 0, 0,
-	240, 240, 240, 240, 0, 0, 0, 0, 240, 240, 240, 240, 15, 15, 15, 15,
-	195, 153, 145, 145, 159, 153, 195, 255, 231, 195, 153, 129, 153, 153, 153, 255,
-	131, 153, 153, 131, 153, 153, 131, 255, 195, 153, 159, 159, 159, 153, 195, 255,
-	135, 147, 153, 153, 153, 147, 135, 255, 129, 159, 159, 135, 159, 159, 129, 255,
-	129, 159, 159, 135, 159, 159, 159, 255, 195, 153, 159, 145, 153, 153, 195, 255,
-	153, 153, 153, 129, 153, 153, 153, 255, 195, 231, 231, 231, 231, 231, 195, 255,
-	225, 243, 243, 243, 243, 147, 199, 255, 153, 147, 135, 143, 135, 147, 153, 255,
-	159, 159, 159, 159, 159, 159, 129, 255, 156, 136, 128, 148, 156, 156, 156, 255,
-	153, 137, 129, 129, 145, 153, 153, 255, 195, 153, 153, 153, 153, 153, 195, 255,
-	131, 153, 153, 131, 159, 159, 159, 255, 195, 153, 153, 153, 153, 195, 241, 255,
-	131, 153, 153, 131, 135, 147, 153, 255, 195, 153, 159, 195, 249, 153, 195, 255,
-	129, 231, 231, 231, 231, 231, 231, 255, 153, 153, 153, 153, 153, 153, 195, 255,
-	153, 153, 153, 153, 153, 195, 231, 255, 156, 156, 156, 148, 128, 136, 156, 255,
-	153, 153, 195, 231, 195, 153, 153, 255, 153, 153, 153, 195, 231, 231, 231, 255,
-	129, 249, 243, 231, 207, 159, 129, 255, 195, 207, 207, 207, 207, 207, 195, 255,
-	243, 237, 207, 131, 207, 157, 3, 255, 195, 243, 243, 243, 243, 243, 195, 255,
-	255, 231, 195, 129, 231, 231, 231, 231, 255, 239, 207, 128, 128, 207, 239, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 231, 231, 231, 231, 255, 255, 231, 255,
-	153, 153, 153, 255, 255, 255, 255, 255, 153, 153, 0, 153, 0, 153, 153, 255,
-	231, 193, 159, 195, 249, 131, 231, 255, 157, 153, 243, 231, 207, 153, 185, 255,
-	195, 153, 195, 199, 152, 153, 192, 255, 249, 243, 231, 255, 255, 255, 255, 255,
-	243, 231, 207, 207, 207, 231, 243, 255, 207, 231, 243, 243, 243, 231, 207, 255,
-	255, 153, 195, 0, 195, 153, 255, 255, 255, 231, 231, 129, 231, 231, 255, 255,
-	255, 255, 255, 255, 255, 231, 231, 207, 255, 255, 255, 129, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 231, 231, 255, 255, 252, 249, 243, 231, 207, 159, 255,
-	195, 153, 145, 137, 153, 153, 195, 255, 231, 231, 199, 231, 231, 231, 129, 255,
-	195, 153, 249, 243, 207, 159, 129, 255, 195, 153, 249, 227, 249, 153, 195, 255,
-	249, 241, 225, 153, 128, 249, 249, 255, 129, 159, 131, 249, 249, 153, 195, 255,
-	195, 153, 159, 131, 153, 153, 195, 255, 129, 153, 243, 231, 231, 231, 231, 255,
-	195, 153, 153, 195, 153, 153, 195, 255, 195, 153, 153, 193, 249, 153, 195, 255,
-	255, 255, 231, 255, 255, 231, 255, 255, 255, 255, 231, 255, 255, 231, 231, 207,
-	241, 231, 207, 159, 207, 231, 241, 255, 255, 255, 129, 255, 129, 255, 255, 255,
-	143, 231, 243, 249, 243, 231, 143, 255, 195, 153, 249, 243, 231, 255, 231, 255,
-	255, 255, 255, 0, 0, 255, 255, 255, 247, 227, 193, 128, 128, 227, 193, 255,
-	231, 231, 231, 231, 231, 231, 231, 231, 255, 255, 255, 0, 0, 255, 255, 255,
-	255, 255, 0, 0, 255, 255, 255, 255, 255, 0, 0, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 0, 0, 255, 255, 207, 207, 207, 207, 207, 207, 207, 207,
-	243, 243, 243, 243, 243, 243, 243, 243, 255, 255, 255, 31, 15, 199, 231, 231,
-	231, 231, 227, 240, 248, 255, 255, 255, 231, 231, 199, 15, 31, 255, 255, 255,
-	63, 63, 63, 63, 63, 63, 0, 0, 63, 31, 143, 199, 227, 241, 248, 252,
-	252, 248, 241, 227, 199, 143, 31, 63, 0, 0, 63, 63, 63, 63, 63, 63,
-	0, 0, 252, 252, 252, 252, 252, 252, 255, 195, 129, 129, 129, 129, 195, 255,
-	255, 255, 255, 255, 255, 0, 0, 255, 201, 128, 128, 128, 193, 227, 247, 255,
-	159, 159, 159, 159, 159, 159, 159, 159, 255, 255, 255, 248, 240, 227, 231, 231,
-	60, 24, 129, 195, 195, 129, 24, 60, 255, 195, 129, 153, 153, 129, 195, 255,
-	231, 231, 153, 153, 231, 231, 195, 255, 249, 249, 249, 249, 249, 249, 249, 249,
-	247, 227, 193, 128, 193, 227, 247, 255, 231, 231, 231, 0, 0, 231, 231, 231,
-	63, 63, 207, 207, 63, 63, 207, 207, 231, 231, 231, 231, 231, 231, 231, 231,
-	255, 255, 252, 193, 137, 201, 201, 255, 0, 128, 192, 224, 240, 248, 252, 254,
-	255, 255, 255, 255, 255, 255, 255, 255, 15, 15, 15, 15, 15, 15, 15, 15,
-	255, 255, 255, 255, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 0, 63, 63, 63, 63, 63, 63, 63, 63,
-	51, 51, 204, 204, 51, 51, 204, 204, 252, 252, 252, 252, 252, 252, 252, 252,
-	255, 255, 255, 255, 51, 51, 204, 204, 0, 1, 3, 7, 15, 31, 63, 127,
-	252, 252, 252, 252, 252, 252, 252, 252, 231, 231, 231, 224, 224, 231, 231, 231,
-	255, 255, 255, 255, 240, 240, 240, 240, 231, 231, 231, 224, 224, 255, 255, 255,
-	255, 255, 255, 7, 7, 231, 231, 231, 255, 255, 255, 255, 255, 255, 0, 0,
-	255, 255, 255, 224, 224, 231, 231, 231, 231, 231, 231, 0, 0, 255, 255, 255,
-	255, 255, 255, 0, 0, 231, 231, 231, 231, 231, 231, 7, 7, 231, 231, 231,
-	63, 63, 63, 63, 63, 63, 63, 63, 31, 31, 31, 31, 31, 31, 31, 31,
-	248, 248, 248, 248, 248, 248, 248, 248, 0, 0, 255, 255, 255, 255, 255, 255,
-	0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0,
-	252, 252, 252, 252, 252, 252, 0, 0, 255, 255, 255, 255, 15, 15, 15, 15,
-	240, 240, 240, 240, 255, 255, 255, 255, 231, 231, 231, 7, 7, 255, 255, 255,
-	15, 15, 15, 15, 255, 255, 255, 255, 15, 15, 15, 15, 240, 240, 240, 240 };
-static const uint8_t CiResource_zx81_fnt[512] = {
+	240, 240, 240, 240, 0, 0, 0, 0, 240, 240, 240, 240, 15, 15, 15, 15 };
+static const uint8_t FuResource_zx81_fnt[512] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 240, 240, 240, 240, 0, 0, 0, 0,
 	15, 15, 15, 15, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0,
 	0, 0, 0, 0, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240,
@@ -3723,7 +3677,7 @@ static void PchgPalette_Construct(PchgPalette *self)
 
 static void PchgPalette_Destruct(PchgPalette *self)
 {
-	CiShared_Release(self->havePaletteChange);
+	FuShared_Release(self->havePaletteChange);
 }
 
 static int PchgPalette_ReadHuffman(PchgPalette *self)
@@ -3771,7 +3725,7 @@ static bool PchgPalette_Init(PchgPalette *self)
 	self->startLine = self->base.base.base.content[self->base.base.base.contentOffset + 4] << 8 | self->base.base.base.content[self->base.base.base.contentOffset + 5];
 	self->lineCount = self->base.base.base.content[self->base.base.base.contentOffset + 6] << 8 | self->base.base.base.content[self->base.base.base.contentOffset + 7];
 	int havePaletteChangeLength = (self->lineCount + 31) >> 5 << 2;
-	CiShared_Assign((void **) &self->havePaletteChange, (uint8_t *) CiShared_Make(havePaletteChangeLength, sizeof(uint8_t), NULL, NULL));
+	FuShared_Assign((void **) &self->havePaletteChange, (uint8_t *) FuShared_Make(havePaletteChangeLength, sizeof(uint8_t), NULL, NULL));
 	switch (self->base.base.base.content[self->base.base.base.contentOffset + 1]) {
 	case 0:
 		self->base.base.base.contentOffset += 20;
@@ -4926,13 +4880,15 @@ static bool XeKoalaStream_UnpackWrapped(XeKoalaStream *self, int unpackedLength)
 	if (Stream_ReadByte(&self->base.base.base) != 255 || Stream_ReadByte(&self->base.base.base) != 128 || Stream_ReadByte(&self->base.base.base) != 201 || Stream_ReadByte(&self->base.base.base) != 199)
 		return false;
 	int offset = Stream_ReadByte(&self->base.base.base);
-	if (offset < 26 || Stream_ReadByte(&self->base.base.base) != 0 || Stream_ReadByte(&self->base.base.base) != 1)
+	offset |= Stream_ReadByte(&self->base.base.base) << 8;
+	if (offset < 26 || Stream_ReadByte(&self->base.base.base) != 1)
 		return false;
 	int type = Stream_ReadByte(&self->base.base.base);
-	if (Stream_ReadByte(&self->base.base.base) != 14 || Stream_ReadByte(&self->base.base.base) != 0 || Stream_ReadByte(&self->base.base.base) != 40 || Stream_ReadByte(&self->base.base.base) != 0 || Stream_ReadByte(&self->base.base.base) != 192)
+	self->base.base.base.contentOffset++;
+	if (Stream_ReadByte(&self->base.base.base) != 0 || Stream_ReadByte(&self->base.base.base) != 40 || Stream_ReadByte(&self->base.base.base) != 0)
 		return false;
-	self->base.base.base.contentOffset += 7;
-	if (Stream_ReadByte(&self->base.base.base) != 0 || Stream_ReadByte(&self->base.base.base) != 0)
+	self->base.base.base.contentOffset += 9;
+	if (Stream_ReadByte(&self->base.base.base) != 0)
 		return false;
 	self->base.base.base.contentOffset += offset - 21;
 	return XeKoalaStream_UnpackRaw(self, type, unpackedLength);
@@ -5435,7 +5391,7 @@ static void DeepStream_Construct(DeepStream *self)
 
 static void DeepStream_Destruct(DeepStream *self)
 {
-	CiShared_Release(self->line);
+	FuShared_Release(self->line);
 }
 
 static bool DeepStream_SetDpel(DeepStream *self, int chunkOffset, int chunkLength)
@@ -5505,7 +5461,7 @@ static int DeepStream_ReadNibble(DeepStream *self)
 static bool DeepStream_ReadDeltaLine(DeepStream *self, int width, int tvdcOffset)
 {
 	if (self->line == NULL)
-		CiShared_Assign((void **) &self->line, (int *) CiShared_Make(width, sizeof(int), NULL, NULL));
+		FuShared_Assign((void **) &self->line, (int *) FuShared_Make(width, sizeof(int), NULL, NULL));
 	for (int c = 0; c < self->components; c++) {
 		int count = 0;
 		int value = 0;
@@ -6044,7 +6000,7 @@ static bool Ice21Stream_Unpack(Ice21Stream *self, uint8_t *unpacked, int unpacke
 		if (length > unpackedOffset - unpackedStart)
 			length = unpackedOffset - unpackedStart;
 		unpackedOffset -= length;
-		memcpy(unpacked + unpackedOffset, unpacked + unpackedOffset + offset, length);
+		memcpy(unpacked + unpackedOffset, unpacked + (unpackedOffset + offset), length);
 	}
 	return true;
 }
@@ -6212,7 +6168,7 @@ static void PiStream_Construct(PiStream *self)
 
 static void PiStream_Destruct(PiStream *self)
 {
-	CiShared_Release(self->indexes);
+	FuShared_Release(self->indexes);
 }
 
 static int PiStream_ReadInt(PiStream *self, int bits, int maxBits)
@@ -6277,7 +6233,7 @@ static bool PiStream_Unpack(PiStream *self, int width, int height, int depth)
 		for (int j = 0; j < colors; j++)
 			self->recentColors[i << 8 | j] = (uint8_t) ((i - j) & (colors - 1));
 	int indexesLength = width * height;
-	CiShared_Assign((void **) &self->indexes, (uint8_t *) CiShared_Make(indexesLength, sizeof(uint8_t), NULL, NULL));
+	FuShared_Assign((void **) &self->indexes, (uint8_t *) FuShared_Make(indexesLength, sizeof(uint8_t), NULL, NULL));
 	if (!PiStream_UnpackTwoLiterals(self, 0, indexesLength, depth))
 		return false;
 	int lastPosition = -1;
@@ -6713,7 +6669,7 @@ static bool PInterpreter_Print(PInterpreter *self)
 			self->base.contentOffset--;
 			if (self->base.content[self->base.contentOffset - 1] != 25) {
 				if (self->newLineWorks)
-					self->screenOffset = (self->screenOffset & -32) + 32;
+					self->screenOffset = (self->screenOffset & ~31) + 32;
 				self->newLineWorks = true;
 			}
 			return true;
@@ -7280,7 +7236,7 @@ static bool RastaStream_IsLetter(int b)
 {
 	if (b == '_')
 		return true;
-	b &= -33;
+	b &= ~32;
 	return b >= 'A' && b <= 'Z';
 }
 
@@ -7693,9 +7649,9 @@ static void RECOIL_Construct(RECOIL *self)
 
 static void RECOIL_Destruct(RECOIL *self)
 {
-	CiShared_Release(self->indexes);
-	CiShared_Release(self->colorInUse);
-	CiShared_Release(self->pixels);
+	FuShared_Release(self->indexes);
+	FuShared_Release(self->colorInUse);
+	FuShared_Release(self->pixels);
 }
 
 RECOIL *RECOIL_New(void)
@@ -7733,8 +7689,8 @@ void RECOIL_SetNtsc(RECOIL *self, bool ntsc)
 	self->c64Palette[13] = 10146436;
 	self->c64Palette[14] = 7102133;
 	self->c64Palette[15] = 9803157;
-	RECOIL_DecodeR8G8B8Colors(CiResource_c16_pal, 0, 128, self->c16Palette, 0);
-	RECOIL_DecodeR8G8B8Colors(self->ntsc ? CiResource_altirrantsc_pal : CiResource_altirrapal_pal, 0, 256, self->atari8Palette, 0);
+	RECOIL_DecodeR8G8B8Colors(FuResource_c16_pal, 0, 128, self->c16Palette, 0);
+	RECOIL_DecodeR8G8B8Colors(self->ntsc ? FuResource_altirrantsc_pal : FuResource_altirrapal_pal, 0, 256, self->atari8Palette, 0);
 }
 
 bool RECOIL_IsNtsc(const RECOIL *self)
@@ -7798,8 +7754,8 @@ static bool RECOIL_SetSize(RECOIL *self, int width, int height, RECOILResolution
 	self->leftSkip = 0;
 	int pixelsLength = width * height * frames;
 	if (self->pixelsLength < pixelsLength) {
-		CiShared_Assign((void **) &self->pixels, NULL);
-		CiShared_Assign((void **) &self->pixels, (int *) CiShared_Make(pixelsLength, sizeof(int), NULL, NULL));
+		FuShared_Assign((void **) &self->pixels, NULL);
+		FuShared_Assign((void **) &self->pixels, (int *) FuShared_Make(pixelsLength, sizeof(int), NULL, NULL));
 		self->pixelsLength = pixelsLength;
 	}
 	return true;
@@ -7980,8 +7936,8 @@ static int RECOIL_ReadCompanionFile(const RECOIL *self, const char *baseFilename
 		else if (c == '.')
 			break;
 	}
-	char *filename = CiString_Substring(baseFilename, i + 1);
-	CiString_Append(&filename, lower ? lowerExt : upperExt);
+	char *filename = FuString_Substring(baseFilename, i + 1);
+	FuString_Append(&filename, lower ? lowerExt : upperExt);
 	int returnValue = self->vtbl->readFile(self, filename, content, contentLength);
 	free(filename);
 	return returnValue;
@@ -7992,8 +7948,8 @@ static int RECOIL_ReadSiblingFile(const RECOIL *self, const char *baseFilename, 
 	int i = (int) strlen(baseFilename);
 	while (i > 0 && baseFilename[i - 1] != '/' && baseFilename[i - 1] != '\\')
 		i--;
-	char *filename = CiString_Substring(baseFilename, i);
-	CiString_Append(&filename, newFilename);
+	char *filename = FuString_Substring(baseFilename, i);
+	FuString_Append(&filename, newFilename);
 	int returnValue = self->vtbl->readFile(self, filename, content, contentLength);
 	free(filename);
 	return returnValue;
@@ -8115,7 +8071,7 @@ static bool RECOIL_DecodeAmigaPlanar(RECOIL *self, uint8_t const *content, int c
 
 static int RECOIL_GetBitplaneWordsPixel(uint8_t const *content, int contentOffset, int x, int bitplanes)
 {
-	return RECOIL_GetBitplanePixel(content, contentOffset + (x >> 3 & -2) * bitplanes + (x >> 3 & 1), x, bitplanes, 2);
+	return RECOIL_GetBitplanePixel(content, contentOffset + (x >> 3 & ~1) * bitplanes + (x >> 3 & 1), x, bitplanes, 2);
 }
 
 static void RECOIL_DecodeBitplanes(RECOIL *self, uint8_t const *content, int contentOffset, int contentStride, int bitplanes, int pixelsOffset, int width, int height)
@@ -8393,7 +8349,7 @@ static bool RECOIL_DecodeP11(RECOIL *self, uint8_t const *content, int contentLe
 	for (int y = 0; y < 192; y++) {
 		for (int x = 0; x < 256; x++) {
 			static const int PALETTE[4] = { 524032, 16776960, 3868927, 13369403 };
-			int c = content[5 + ((y & -2) << 4) + (x >> 3)] >> (~x & 6) & 3;
+			int c = content[5 + ((y & ~1) << 4) + (x >> 3)] >> (~x & 6) & 3;
 			self->pixels[(y << 8) + x] = PALETTE[c];
 		}
 	}
@@ -8497,7 +8453,7 @@ static bool RECOIL_DecodeBb0(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_SetSize(self, 640, 512, RECOILResolution_BBC1X2, 1);
 	for (int y = 0; y < 256; y++) {
 		for (int x = 0; x < 640; x++) {
-			int c = content[(y & -8) * 80 + (x & -8) + (y & 7)] >> (~x & 7) & 1;
+			int c = content[(y & ~7) * 80 + (x & ~7) + (y & 7)] >> (~x & 7) & 1;
 			int pixelsOffset = y * 1280 + x;
 			self->pixels[pixelsOffset + 640] = self->pixels[pixelsOffset] = palette[c];
 		}
@@ -8512,7 +8468,7 @@ static bool RECOIL_DecodeBb1(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_SetSize(self, 320, 256, RECOILResolution_BBC1X1, 1);
 	for (int y = 0; y < 256; y++) {
 		for (int x = 0; x < 320; x++) {
-			int c = content[(y & -8) * 80 + ((x & -4) << 1) + (y & 7)] >> (~x & 3);
+			int c = content[(y & ~7) * 80 + ((x & ~3) << 1) + (y & 7)] >> (~x & 3);
 			self->pixels[y * 320 + x] = palette[(c >> 3 & 2) + (c & 1)];
 		}
 	}
@@ -8526,7 +8482,7 @@ static bool RECOIL_DecodeBb2(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_SetSize(self, 320, 256, RECOILResolution_BBC2X1, 1);
 	for (int y = 0; y < 256; y++) {
 		for (int x = 0; x < 160; x++) {
-			int c = content[(y & -8) * 80 + ((x & -2) << 2) + (y & 7)] >> (~x & 1);
+			int c = content[(y & ~7) * 80 + ((x & ~1) << 2) + (y & 7)] >> (~x & 1);
 			int pixelsOffset = (y * 160 + x) << 1;
 			self->pixels[pixelsOffset + 1] = self->pixels[pixelsOffset] = palette[(c >> 3 & 8) + (c >> 2 & 4) + (c >> 1 & 2) + (c & 1)];
 		}
@@ -8541,7 +8497,7 @@ static bool RECOIL_DecodeBb4(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_SetSize(self, 320, 256, RECOILResolution_BBC1X1, 1);
 	for (int y = 0; y < 256; y++) {
 		for (int x = 0; x < 320; x++) {
-			int c = content[(y & -8) * 40 + (x & -8) + (y & 7)] >> (~x & 7) & 1;
+			int c = content[(y & ~7) * 40 + (x & ~7) + (y & 7)] >> (~x & 7) & 1;
 			self->pixels[y * 320 + x] = palette[c];
 		}
 	}
@@ -8555,7 +8511,7 @@ static bool RECOIL_DecodeBb5(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_SetSize(self, 320, 256, RECOILResolution_BBC2X1, 1);
 	for (int y = 0; y < 256; y++) {
 		for (int x = 0; x < 160; x++) {
-			int c = content[(y & -8) * 40 + ((x & -4) << 1) + (y & 7)] >> (~x & 3);
+			int c = content[(y & ~7) * 40 + ((x & ~3) << 1) + (y & 7)] >> (~x & 3);
 			int pixelsOffset = (y * 160 + x) << 1;
 			self->pixels[pixelsOffset + 1] = self->pixels[pixelsOffset] = palette[(c >> 3 & 2) + (c & 1)];
 		}
@@ -9051,7 +9007,7 @@ static bool RECOIL_DecodePph(RECOIL *self, const char *filename, uint8_t const *
 static bool RECOIL_DecodeZx81(RECOIL *self, uint8_t const *screen)
 {
 	RECOIL_SetSize(self, 256, 192, RECOILResolution_ZX811X1, 1);
-	uint8_t const *font = CiResource_zx81_fnt;
+	uint8_t const *font = FuResource_zx81_fnt;
 	for (int y = 0; y < 192; y++) {
 		for (int x = 0; x < 256; x++) {
 			int c = screen[y >> 3 << 5 | x >> 3];
@@ -9305,7 +9261,7 @@ static bool RECOIL_DecodeStl(RECOIL *self, uint8_t const *content, int contentLe
 	for (int f = 0; f < 2; f++) {
 		for (int y = 0; y < 192; y++) {
 			for (int x = 0; x < 256; x++) {
-				int b = content[(y & -4) << 4 | (x >> 2 & -4) | f << 1 | (x >> 3 & 1)];
+				int b = content[(y & ~3) << 4 | (x >> 2 & ~3) | f << 1 | (x >> 3 & 1)];
 				int rgb = RECOIL_GetZxColor((x & 4) == 0 ? b >> 3 : b);
 				if ((b & 64) == 0)
 					rgb &= 13487565;
@@ -9355,7 +9311,7 @@ static bool RECOIL_DecodeZxs(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_SetZx(self, RECOILResolution_SPECTRUM1X1, 1);
 	for (int y = 0; y < 192; y++) {
 		for (int x = 0; x < 256; x++) {
-			int offset = (x & -8) * 3 + (y >> 3);
+			int offset = (x & ~7) * 3 + (y >> 3);
 			int c = content[908 + offset];
 			if (c >= 112)
 				return false;
@@ -9854,7 +9810,7 @@ static void RECOIL_DecodeSc2Sc4(RECOIL *self, uint8_t const *content, int conten
 	for (int y = 0; y < 192; y++) {
 		int fontOffset = contentOffset + ((y & 192) << 5) + (y & 7);
 		for (int x = 0; x < 256; x++) {
-			int b = fontOffset + (content[contentOffset + 6144 + ((y & -8) << 2) + (x >> 3)] << 3);
+			int b = fontOffset + (content[contentOffset + 6144 + ((y & ~7) << 2) + (x >> 3)] << 3);
 			int c = content[8192 + b];
 			self->pixels[(y << 8) + x] = self->contentPalette[(content[b] >> (~x & 7) & 1) == 0 ? c & 15 : c >> 4];
 		}
@@ -9942,7 +9898,7 @@ static void RECOIL_DecodeSc3Screen(RECOIL *self, uint8_t const *content, int con
 	RECOIL_SetSize(self, 256, 192, RECOILResolution_MSX14X4, 1);
 	for (int y = 0; y < 192; y++) {
 		for (int x = 0; x < 256; x++) {
-			int c = isLong ? content[2055 + ((y & -8) << 2) + (x >> 3)] : (y & 224) + (x >> 3);
+			int c = isLong ? content[2055 + ((y & ~7) << 2) + (x >> 3)] : (y & 224) + (x >> 3);
 			c = content[contentOffset + (c << 3) + (y >> 2 & 7)] >> (~x & 4) & 15;
 			self->pixels[(y << 8) + x] = self->contentPalette[c];
 		}
@@ -10000,7 +9956,7 @@ static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int c
 		rgb = y * 65793;
 	}
 	else {
-		x = contentOffset + (x & -4);
+		x = contentOffset + (x & ~3);
 		int k = (content[x] & 7) | (content[x + 1] & 7) << 3;
 		int j = (content[x + 2] & 7) | (content[x + 3] & 7) << 3;
 		k -= (k & 32) << 1;
@@ -10469,7 +10425,7 @@ static void RECOIL_DecodeG9bUnpacked(RECOIL *self, uint8_t const *content, int d
 		pixelsLength = self->width * self->height;
 		for (int i = 0; i < pixelsLength; i++) {
 			int y = content[16 + i] >> 3;
-			int x = 16 + (i & -4);
+			int x = 16 + (i & ~3);
 			int v = (content[x] & 7) | (content[x + 1] & 7) << 3;
 			int u = (content[x + 2] & 7) | (content[x + 3] & 7) << 3;
 			u -= (u & 32) << 1;
@@ -10567,7 +10523,7 @@ static bool RECOIL_DecodeG9b(RECOIL *self, uint8_t const *content, int contentLe
 		return true;
 	case 1:
 		;
-		uint8_t *unpacked = (uint8_t *) CiShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) FuShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
 		G9bStream s;
 		G9bStream_Construct(&s);
 		s.base.base.content = content;
@@ -10575,7 +10531,7 @@ static bool RECOIL_DecodeG9b(RECOIL *self, uint8_t const *content, int contentLe
 		bool ok = G9bStream_Unpack(&s, unpacked, headerLength, unpackedLength);
 		if (ok)
 			RECOIL_DecodeG9bUnpacked(self, unpacked, depth, headerLength);
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return ok;
 	default:
 		return false;
@@ -11590,6 +11546,129 @@ static bool RECOIL_DecodeArtMaster88(RECOIL *self, uint8_t const *content, int c
 	return true;
 }
 
+static int RECOIL_GetKtyTile(uint8_t const *content, int contentOffset)
+{
+	return content[contentOffset + 1] << 16 | content[contentOffset + 2] << 8 | content[contentOffset];
+}
+
+static void RECOIL_SetKtyFourPixels(RECOIL *self, int pixelsOffset, int tile)
+{
+	for (int x = 0; x < 4; x++)
+		self->pixels[pixelsOffset + x] = (tile >> (3 - x) & 65793) * 255;
+}
+
+static void RECOIL_SetKtyTileOffset(RECOIL *self, int pixelsOffset, int mode, uint8_t const *content, int tileOffset)
+{
+	int tile = RECOIL_GetKtyTile(content, tileOffset);
+	RECOIL_SetKtyFourPixels(self, pixelsOffset, tile >> 4);
+	RECOIL_SetKtyFourPixels(self, pixelsOffset + 640, tile);
+	if (mode != 0) {
+		if (mode >= 2)
+			tile = RECOIL_GetKtyTile(content, tileOffset + 3);
+		RECOIL_SetKtyFourPixels(self, pixelsOffset + 1280, tile >> 4);
+		RECOIL_SetKtyFourPixels(self, pixelsOffset + 1920, tile);
+	}
+}
+
+static void RECOIL_SetKtyTile(RECOIL *self, int x, int y, int mode, uint8_t const *content, int tileOffset)
+{
+	if (mode != 0)
+		y <<= 1;
+	RECOIL_SetKtyTileOffset(self, (y * 320 + x) << 2, mode, content, tileOffset);
+}
+
+static bool RECOIL_DecodeKty(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	RECOIL_SetSize(self, 640, 400, RECOILResolution_PC88_VA1X1, 1);
+	for (int i = 0; i < 256000; i += 4)
+		self->pixels[i] = 1;
+	int mode = 0;
+	for (int contentOffset = 0; contentOffset < contentLength;) {
+		int b = content[contentOffset++];
+		if (b == 255) {
+			if (mode != 0)
+				mode = 2;
+			for (int y = 0; y < 100; y++) {
+				for (int x = 0; x < 160; x++) {
+					int pixelsOffset = (y * (mode == 0 ? 320 : 640) + x) << 2;
+					if (self->pixels[pixelsOffset] == 1) {
+						int nextOffset = contentOffset + (mode == 0 ? 3 : 6);
+						if (nextOffset > contentLength)
+							return false;
+						RECOIL_SetKtyTileOffset(self, pixelsOffset, mode, content, contentOffset);
+						contentOffset = nextOffset;
+					}
+				}
+			}
+			if (contentOffset != contentLength)
+				return false;
+			if (mode == 0) {
+				for (int pixelsOffset = 127360; pixelsOffset >= 0; pixelsOffset -= 640) {
+					memcpy(self->pixels + ((pixelsOffset << 1) + 640), self->pixels + pixelsOffset, 640 * sizeof(int));
+					memcpy(self->pixels + (pixelsOffset << 1), self->pixels + pixelsOffset, 640 * sizeof(int));
+				}
+				self->resolution = RECOILResolution_PC881X2;
+			}
+			return true;
+		}
+		mode = b;
+		int tileOffset = contentOffset;
+		contentOffset += mode < 2 ? 3 : 6;
+		for (;;) {
+			if (contentOffset >= contentLength)
+				return false;
+			int hi = content[contentOffset++];
+			if (hi == 255)
+				break;
+			if (contentOffset + 2 > contentLength)
+				return false;
+			int offset = (hi & 63) << 8 | content[contentOffset++];
+			int left = offset % 160;
+			int top = offset / 160;
+			if (top >= 100)
+				return false;
+			int right;
+			int bottom;
+			if (hi >= 128) {
+				right = left;
+				bottom = content[contentOffset++];
+			}
+			else {
+				right = content[contentOffset++];
+				if (right < left || right >= 160)
+					return false;
+				if (hi >= 64)
+					bottom = top;
+				else if (contentOffset >= contentLength)
+					return false;
+				else {
+					bottom = content[contentOffset++];
+					if (bottom < top || bottom >= 100)
+						return false;
+				}
+			}
+			for (int y = top; y <= bottom; y++) {
+				for (int x = left; x <= right; x++)
+					RECOIL_SetKtyTile(self, x, y, mode, content, tileOffset);
+			}
+		}
+		for (;;) {
+			if (contentOffset >= contentLength)
+				return false;
+			int x = content[contentOffset++];
+			if (x == 255)
+				break;
+			if (x >= 160 || contentOffset >= contentLength)
+				return false;
+			int y = content[contentOffset++];
+			if (y >= 100)
+				return false;
+			RECOIL_SetKtyTile(self, x, y, mode, content, tileOffset);
+		}
+	}
+	return false;
+}
+
 static bool RECOIL_DecodeEbd(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	if (contentLength < 368 || contentLength % 320 != 48)
@@ -11847,7 +11926,7 @@ static bool RECOIL_DecodeZim(RECOIL *self, uint8_t const *content, int contentLe
 		if (contentOffset + 66 > contentLength)
 			return false;
 		for (int c = 0; c < 16; c++) {
-			self->contentPalette[c] = content[contentOffset + 1] << 16 | content[contentOffset + 2] << 8 | content[contentOffset];
+			self->contentPalette[c] = RECOIL_GetKtyTile(content, contentOffset);
 			contentOffset += 4;
 		}
 	}
@@ -12062,7 +12141,7 @@ static bool RECOIL_DecodeMaki1(RECOIL *self, uint8_t const *content, int content
 		for (int x = 0; x < 320; x++) {
 			int row = y & 3;
 			int index = indexBuffer[(row ^ xorYOffset) * 320 + x];
-			if ((haveBuffer[(y & -4) * 20 + (x >> 2)] >> (15 - (row << 2) - (x & 3)) & 1) != 0) {
+			if ((haveBuffer[(y & ~3) * 20 + (x >> 2)] >> (15 - (row << 2) - (x & 3)) & 1) != 0) {
 				if (contentOffset >= contentLength)
 					return false;
 				index ^= content[contentOffset++];
@@ -12087,7 +12166,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 	int colorOffset = headerOffset + RECOIL_Get32LittleEndian(content, headerOffset + 24);
 	if (haveDelta.base.contentOffset < 0 || deltaOffset < 0 || colorOffset < 0)
 		return false;
-	uint8_t *deltas = (uint8_t *) CiShared_Make((bytesPerLine + 3) >> 2, sizeof(uint8_t), NULL, NULL);
+	uint8_t *deltas = (uint8_t *) FuShared_Make((bytesPerLine + 3) >> 2, sizeof(uint8_t), NULL, NULL);
 	memset(deltas, 0, ((bytesPerLine + 3) >> 2) * sizeof(uint8_t));
 	for (int y = 0; y < height; y++) {
 		int delta = 0;
@@ -12100,14 +12179,14 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 						break;
 					case 1:
 						if (deltaOffset >= contentLength) {
-							CiShared_Release(deltas);
+							FuShared_Release(deltas);
 							return false;
 						}
 						delta ^= content[deltaOffset++];
 						deltas[x >> 2] = (uint8_t) delta;
 						break;
 					default:
-						CiShared_Release(deltas);
+						FuShared_Release(deltas);
 						return false;
 					}
 					delta >>= 4;
@@ -12117,7 +12196,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 			}
 			if (delta == 0) {
 				if (colorOffset >= contentLength) {
-					CiShared_Release(deltas);
+					FuShared_Release(deltas);
 					return false;
 				}
 				unpacked[y * bytesPerLine + x] = content[colorOffset++];
@@ -12128,7 +12207,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 				int sourceX = x - DELTA_X[delta];
 				int sourceY = y - DELTA_Y[delta];
 				if (sourceX < 0 || sourceY < 0) {
-					CiShared_Release(deltas);
+					FuShared_Release(deltas);
 					return false;
 				}
 				unpacked[y * bytesPerLine + x] = unpacked[sourceY * bytesPerLine + sourceX];
@@ -12139,7 +12218,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 		if (((bytesPerLine + 1) & 2) != 0 && (deltas[bytesPerLine >> 2] & 15) == 0)
 			colorOffset += 2;
 	}
-	CiShared_Release(deltas);
+	FuShared_Release(deltas);
 	return true;
 }
 
@@ -12238,9 +12317,9 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 	}
 	if (!RECOIL_SetScaledSize(self, width, height, resolution))
 		return false;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL);
 	if (!RECOIL_UnpackMag(content, headerOffset, contentLength, bytesPerLine, height, unpacked)) {
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return false;
 	}
 	RECOIL_SetMagPalette(self, content, headerOffset + 32, colors);
@@ -12264,7 +12343,7 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 			RECOIL_DecodeBytes(self, unpacked, 0);
 		break;
 	}
-	CiShared_Release(unpacked);
+	FuShared_Release(unpacked);
 	return true;
 }
 
@@ -12402,7 +12481,7 @@ static bool RECOIL_DecodeP4i(RECOIL *self, uint8_t const *content, int contentLe
 			RECOIL_SetSize(self, 320, 200, RECOILResolution_C162X1, 1);
 			for (int y = 0; y < 200; y++) {
 				for (int x = 0; x < 320; x++) {
-					int offset = (y & -8) * 40 + (x & -8) + (y & 7);
+					int offset = (y & ~7) * 40 + (x & ~7) + (y & 7);
 					int c = content[2050 + offset] >> (~x & 6) & 3;
 					switch (c) {
 					case 0:
@@ -12428,7 +12507,7 @@ static bool RECOIL_DecodeP4i(RECOIL *self, uint8_t const *content, int contentLe
 			RECOIL_SetSize(self, 320, 200, RECOILResolution_C161X1, 1);
 			for (int y = 0; y < 200; y++) {
 				for (int x = 0; x < 320; x++) {
-					int offset = (y & -8) * 40 + (x & -8) + (y & 7);
+					int offset = (y & ~7) * 40 + (x & ~7) + (y & 7);
 					int c = content[2050 + offset] >> (~x & 7) & 1;
 					offset >>= 3;
 					if (c == 0)
@@ -12445,7 +12524,7 @@ static bool RECOIL_DecodeP4i(RECOIL *self, uint8_t const *content, int contentLe
 		for (int y = 0; y < 64; y++) {
 			for (int x = 0; x < 256; x++) {
 				static const uint8_t LOGO_COLORS[4] = { 0, 49, 81, 113 };
-				int c = LOGO_COLORS[content[2 + ((x & -8) << 3) + y] >> (~x & 6) & 3];
+				int c = LOGO_COLORS[content[2 + ((x & ~7) << 3) + y] >> (~x & 6) & 3];
 				self->pixels[(y << 8) + x] = self->c16Palette[c];
 			}
 		}
@@ -12545,7 +12624,7 @@ static void RECOIL_DecodeC64FourColor(RECOIL *self, uint8_t const *content, int 
 	for (int y = 0; y < self->height; y++) {
 		for (int x = 0; x < 320; x++) {
 			int i = x - frame;
-			int c = i < 0 ? 0 : content[contentOffset + (y & -8) * 40 + (i & -8) + (y & 7)] >> (~i & 6) & 3;
+			int c = i < 0 ? 0 : content[contentOffset + (y & ~7) * 40 + (i & ~7) + (y & 7)] >> (~i & 6) & 3;
 			self->pixels[(frame * self->height + y) * 320 + x] = self->contentPalette[c];
 		}
 	}
@@ -12583,7 +12662,7 @@ static bool RECOIL_DecodeCfli(RECOIL *self, uint8_t const *content, int contentL
 	RECOIL_SetSize(self, 296, 200, RECOILResolution_C641X1, 1);
 	for (int y = 0; y < 200; y++) {
 		for (int x = 0; x < 296; x++)
-			self->pixels[y * 296 + x] = self->c64Palette[content[5 + ((y & 7) << 10) + (y & -8) * 5 + (x >> 3)] >> ((~x & 1) << 2) & 15];
+			self->pixels[y * 296 + x] = self->c64Palette[content[5 + ((y & 7) << 10) + (y & ~7) * 5 + (x >> 3)] >> ((~x & 1) << 2) & 15];
 	}
 	return true;
 }
@@ -12639,7 +12718,7 @@ static void RECOIL_DecodeC64HiresFrame(RECOIL *self, uint8_t const *content, int
 {
 	for (int y = 0; y < self->height; y++) {
 		for (int x = 0; x < self->width; x++) {
-			int offset = (y & -8) * stride + (x & -8) + (y & 7);
+			int offset = (y & ~7) * stride + (x & ~7) + (y & 7);
 			int c = content[bitmapOffset + offset] >> (~x & 7) & 1;
 			int v;
 			if (videoMatrixOffset >= 0) {
@@ -12732,12 +12811,12 @@ static bool RECOIL_DecodeDd(RECOIL *self, uint8_t const *content, int contentLen
 	}
 }
 
-static int RECOIL_GetC64Multicolor(const RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int x, int y)
+static int RECOIL_GetC64Multicolor(const RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int x, int y, int strideColumns)
 {
 	x += self->leftSkip;
 	if (x < 0)
 		return background;
-	int charOffset = (y & -8) * 5 + (x >> 3);
+	int charOffset = (y >> 3) * strideColumns + (x >> 3);
 	if (bottomBfli)
 		charOffset = (charOffset - 21) & 1023;
 	switch (content[bitmapOffset + (charOffset << 3) + (y & 7)] >> (~x & 6) & 3) {
@@ -12752,17 +12831,17 @@ static int RECOIL_GetC64Multicolor(const RECOIL *self, uint8_t const *content, i
 	}
 }
 
-static void RECOIL_DecodeC64MulticolorLine(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int y, int pixelsOffset)
+static void RECOIL_DecodeC64MulticolorLine(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int y, int pixelsOffset, int width, int strideColumns)
 {
-	for (int x = 0; x < self->width; x++)
-		self->pixels[pixelsOffset + x] = self->c64Palette[RECOIL_GetC64Multicolor(self, content, bitmapOffset, videoMatrixOffset, colorOffset, background, bottomBfli, x, y) & 15];
+	for (int x = 0; x < width; x++)
+		self->pixels[pixelsOffset + x] = self->c64Palette[RECOIL_GetC64Multicolor(self, content, bitmapOffset, videoMatrixOffset, colorOffset, background, bottomBfli, x, y, strideColumns) & 15];
 }
 
 static void RECOIL_DecodeC64MulticolorFrame(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int backgroundOffset, int pixelsOffset)
 {
 	int background = backgroundOffset < 0 ? 0 : content[backgroundOffset];
 	for (int y = 0; y < 200; y++)
-		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset, videoMatrixOffset, colorOffset, background, false, y, pixelsOffset + y * 320);
+		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset, videoMatrixOffset, colorOffset, background, false, y, pixelsOffset + y * 320, 320, 40);
 }
 
 static bool RECOIL_DecodeC64Multicolor(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int backgroundOffset)
@@ -12790,13 +12869,13 @@ static bool RECOIL_DecodeBpl(RECOIL *self, uint8_t const *content, int contentLe
 static void RECOIL_DecodeC64MulticolorFliFrame(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background, bool bottomBfli, int pixelsOffset)
 {
 	for (int y = 0; y < 200; y++)
-		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset, videoMatrixOffset + ((y & 7) << 10), colorOffset, background, bottomBfli, y, pixelsOffset + y * 296);
+		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset, videoMatrixOffset + ((y & 7) << 10), colorOffset, background, bottomBfli, y, pixelsOffset + y * 296, 296, 40);
 }
 
 static void RECOIL_DecodeC64MulticolorFliBarsFrame(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int backgroundOffset, int pixelsOffset)
 {
 	for (int y = 0; y < 200; y++)
-		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset, videoMatrixOffset + ((y & 7) << 10), colorOffset, content[backgroundOffset + y], false, y, pixelsOffset + y * 296);
+		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset, videoMatrixOffset + ((y & 7) << 10), colorOffset, content[backgroundOffset + y], false, y, pixelsOffset + y * 296, 296, 40);
 }
 
 static bool RECOIL_DecodeC64MulticolorFli(RECOIL *self, uint8_t const *content, int bitmapOffset, int videoMatrixOffset, int colorOffset, int background)
@@ -13170,7 +13249,7 @@ static bool RECOIL_DecodeHcb(RECOIL *self, uint8_t const *content, int contentLe
 		return false;
 	RECOIL_SetSize(self, 296, 200, RECOILResolution_C642X1, 1);
 	for (int y = 0; y < 200; y++)
-		RECOIL_DecodeC64MulticolorLine(self, content, 4122, 2053 + ((y & 4) << 8), 2053 + ((y & 4) << 8), content[12098 + (y >> 2)], false, y, y * 296);
+		RECOIL_DecodeC64MulticolorLine(self, content, 4122, 2053 + ((y & 4) << 8), 2053 + ((y & 4) << 8), content[12098 + (y >> 2)], false, y, y * 296, 296, 40);
 	return true;
 }
 
@@ -13276,7 +13355,7 @@ static bool RECOIL_DecodeEmc(RECOIL *self, uint8_t const *content, int contentLe
 		return false;
 	RECOIL_SetSize(self, 296, 192, RECOILResolution_C642X1, 1);
 	for (int y = 0; y < 192; y++)
-		RECOIL_DecodeC64MulticolorLine(self, content, 8218, 5 + (((y + 4) & 7) << 10), 16389, content[17411], false, y + 4, y * 296);
+		RECOIL_DecodeC64MulticolorLine(self, content, 8218, 5 + (((y + 4) & 7) << 10), 16389, content[17411], false, y + 4, y * 296, 296, 40);
 	return true;
 }
 
@@ -13370,7 +13449,7 @@ static void RECOIL_DecodeGunFrame(RECOIL *self, uint8_t const *content, int bitm
 {
 	for (int y = 0; y < 200; y++) {
 		int background = content[y < 177 ? 16209 + y : y < 197 ? 18233 + y : 18429];
-		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset + 24, videoMatrixOffset + 3 + ((y & 7) << 10), 16389, background, false, y, pixelsOffset + y * 296);
+		RECOIL_DecodeC64MulticolorLine(self, content, bitmapOffset + 24, videoMatrixOffset + 3 + ((y & 7) << 10), 16389, background, false, y, pixelsOffset + y * 296, 296, 40);
 	}
 }
 
@@ -13444,7 +13523,7 @@ static bool RECOIL_DecodeMilPacked(RECOIL *self, uint8_t const *content, int con
 	for (int y = 0; y < 200; y++) {
 		for (int x = 0; x < 320; x++) {
 			int column = x >> 3;
-			int charOffset = vertical ? column * 25 + (y >> 3 & 1) * 13 + (y >> 4) : (y & -8) * 5 + column;
+			int charOffset = vertical ? column * 25 + (y >> 3 & 1) * 13 + (y >> 4) : (y & ~7) * 5 + column;
 			int c;
 			switch (unpacked[2000 + (vertical ? column * 200 + (y & 1) * 100 + (y >> 1) : y * 40 + column)] >> (~x & 6) & 3) {
 			case 1:
@@ -13629,34 +13708,65 @@ static bool RECOIL_DecodeSpd(RECOIL *self, uint8_t const *content, int contentLe
 	return true;
 }
 
-static bool RECOIL_DecodePetScreen(RECOIL *self, uint8_t const *content, int screenOffset, int colorsOffset, int backgroundOffset, int columns, int rows)
+static int RECOIL_GetAtari8Gr0Pixel(uint8_t const *font, int fontOffset, int ch, int x, int y)
+{
+	return (font[fontOffset + ((ch & 127) << 3) + (y & 7)] >> (~x & 7) ^ ch >> 7) & 1;
+}
+
+static bool RECOIL_DecodePetScreenCustom(RECOIL *self, uint8_t const *content, int screenOffset, int fontOffset, uint8_t const *colors, int colorsOffset, int background, int columns, int rows)
 {
 	int width = columns << 3;
 	int height = rows << 3;
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_C641X1, 1))
 		return false;
-	uint8_t const *font = CiResource_c64_fnt;
+	uint8_t const *font = FuResource_c64_fnt;
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			int offset = (y >> 3) * columns + (x >> 3);
-			if ((font[content[screenOffset + offset] << 3 | (y & 7)] >> (~x & 7) & 1) == 0)
-				offset = backgroundOffset;
+			int ch = content[screenOffset + offset];
+			int c;
+			if ((fontOffset == 0 ? RECOIL_GetAtari8Gr0Pixel(font, 0, ch, x, y) : content[fontOffset + (ch << 3) + (y & 7)] >> (~x & 7) & 1) == 0)
+				c = background;
 			else
-				offset += colorsOffset;
-			self->pixels[y * width + x] = self->c64Palette[content[offset] & 15];
+				c = colors[colorsOffset + offset];
+			self->pixels[y * width + x] = self->c64Palette[c & 15];
 		}
 	}
 	return true;
 }
 
+static bool RECOIL_DecodePetScreen(RECOIL *self, uint8_t const *content, int screenOffset, int colorsOffset, int background, int columns, int rows)
+{
+	return RECOIL_DecodePetScreenCustom(self, content, screenOffset, 0, content, colorsOffset, background, columns, rows);
+}
+
 static bool RECOIL_DecodePet(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	return contentLength == 2026 && RECOIL_DecodePetScreen(self, content, 2, 1026, 1003, 40, 25);
+	switch (contentLength) {
+	case 2026:
+		return RECOIL_DecodePetScreen(self, content, 2, 1026, content[1003], 40, 25);
+	case 4105:
+		return content[0] == 208 && content[1] == 197 && content[2] == 212 && content[3] == '2' && RECOIL_DecodePetScreenCustom(self, content, 55, 2057, content, 1055, content[2056], 40, 25);
+	default:
+		return false;
+	}
 }
 
 static bool RECOIL_DecodePdr(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	return contentLength == 2029 && RECOIL_DecodePetScreen(self, content, 5, 1029, 3, 40, 25);
+	return contentLength == 2029 && RECOIL_DecodePetScreen(self, content, 5, 1029, content[3], 40, 25);
+}
+
+static bool RECOIL_DecodePbot(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	switch (contentLength) {
+	case 70:
+		return RECOIL_DecodePetScreen(self, content, 35, 0, 0, 5, 7);
+	case 384:
+		return RECOIL_DecodePetScreen(self, content, 192, 0, 0, 12, 16);
+	default:
+		return false;
+	}
 }
 
 static bool RECOIL_DecodeScrCol(RECOIL *self, const char *filename, uint8_t const *content, int contentLength)
@@ -13664,22 +13774,55 @@ static bool RECOIL_DecodeScrCol(RECOIL *self, const char *filename, uint8_t cons
 	if (contentLength != 1002)
 		return false;
 	uint8_t colors[1003];
-	if (RECOIL_ReadCompanionFile(self, filename, "COL", "col", colors, 1003) != 1002)
+	return RECOIL_ReadCompanionFile(self, filename, "COL", "col", colors, 1003) == 1002 && RECOIL_DecodePetScreenCustom(self, content, 2, 0, colors, 2, 0, 40, 25);
+}
+
+static bool RECOIL_DecodeCgx(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength < 40 || !RECOIL_IsStringAt(content, 0, "RIFF") || RECOIL_Get32LittleEndian(content, 4) + 8 != contentLength || !RECOIL_IsStringAt(content, 8, "CGFX"))
 		return false;
-	RECOIL_SetSize(self, 320, 200, RECOILResolution_C641X1, 1);
-	uint8_t const *font = CiResource_c64_fnt;
-	for (int y = 0; y < 200; y++) {
-		for (int x = 0; x < 320; x++) {
-			int offset = 2 + (y & -8) * 5 + (x >> 3);
-			int c;
-			if ((font[content[offset] << 3 | (y & 7)] >> (~x & 7) & 1) == 0)
-				c = 0;
-			else
-				c = colors[offset] & 15;
-			self->pixels[y * 320 + x] = self->c64Palette[c];
+	int contentOffset = 12;
+	int matrixRows = 0;
+	int matrixColumns = 0;
+	int frameRows = 0;
+	int frameColumns = 0;
+	while (contentOffset + 8 <= contentLength) {
+		int chunkLength = RECOIL_Get32LittleEndian(content, contentOffset + 4);
+		int nextChunkOffset = contentOffset + 8 + chunkLength;
+		if (nextChunkOffset > contentLength)
+			return false;
+		if (RECOIL_IsStringAt(content, contentOffset, "FRMT") && chunkLength == 12) {
+			matrixRows = content[contentOffset + 8];
+			matrixColumns = content[contentOffset + 9];
+			frameRows = content[contentOffset + 16];
+			frameColumns = content[contentOffset + 17];
+			if (content[contentOffset + 12] != matrixRows * matrixColumns || content[contentOffset + 18] != 4 || content[contentOffset + 19] != 0)
+				return false;
 		}
+		else if (RECOIL_IsStringAt(content, contentOffset, "DATA")) {
+			int frameChars = frameRows * frameColumns;
+			int frameLength = frameChars * 10 + 2;
+			int frames = matrixRows * matrixColumns;
+			int width = matrixColumns * frameColumns << 3;
+			int height = matrixRows * frameRows << 3;
+			if (chunkLength != frames * frameLength || !RECOIL_SetSize(self, width, height, RECOILResolution_C642X1, 1))
+				return false;
+			for (int matrixRow = 0; matrixRow < matrixRows; matrixRow++) {
+				for (int matrixColumn = 0; matrixColumn < matrixColumns; matrixColumn++) {
+					int frameOffset = contentOffset + 8 + (matrixRow * matrixColumns + matrixColumn) * frameLength;
+					int background = content[frameOffset + frameLength - 1];
+					int pixelsOffset = (matrixRow * frameRows * width + matrixColumn * frameColumns) << 3;
+					for (int y = 0; y < frameRows << 3; y++)
+						RECOIL_DecodeC64MulticolorLine(self, content, frameOffset, frameOffset + (frameChars << 3), frameOffset + frameChars * 9, background, false, y, pixelsOffset + y * width, frameColumns << 3, frameColumns);
+				}
+			}
+			return true;
+		}
+		else if (!RECOIL_IsStringAt(content, contentOffset, "META"))
+			return false;
+		contentOffset = nextChunkOffset;
 	}
-	return true;
+	return false;
 }
 
 static bool RECOIL_DecodeFpr(RECOIL *self, uint8_t const *content, int contentLength)
@@ -13814,7 +13957,7 @@ static void RECOIL_DecodeEshFrame(RECOIL *self, uint8_t const *content, int bitm
 			if ((content[spriteOffset + (((y / 21 << 3) + column / 3) << 6) + y % 21 * 3 + column % 3] >> bit & 1) != 0)
 				c = content[20443 + column / 3];
 			else {
-				int offset = (y & -8) * 3 + column;
+				int offset = (y & ~7) * 3 + column;
 				c = content[19843 + offset] >> ((content[bitmapOffset + (offset << 3) + (y & 7)] >> bit & 1) << 2);
 			}
 			self->pixels[pixelsOffset + y * 192 + x] = self->c64Palette[c & 15];
@@ -13861,7 +14004,7 @@ static bool RECOIL_DecodeShx(RECOIL *self, uint8_t const *content, int contentLe
 				if ((content[8194 + (spriteNo << 6) + y % 21 * 3 + column % 3] >> bit & 1) != 0)
 					c = content[1003];
 				else {
-					int offset = (y & -8) * 5 + column;
+					int offset = (y & ~7) * 5 + column;
 					c = content[13 + ((y & 7) << 10) + offset] >> ((content[8282 + (offset << 3) + (y & 7)] >> bit & 1) << 2);
 				}
 				self->pixels[y * 144 + x] = self->c64Palette[c & 15];
@@ -14069,7 +14212,7 @@ static int RECOIL_GetIshPixel(uint8_t const *content, int contentOffset, int x, 
 		if ((content[8192 + spriteOffset] >> bit & 1) != 0)
 			return content[contentOffset + 15360 + spriteInLine];
 	}
-	int offset = (y & -8) * 5 + column;
+	int offset = (y & ~7) * 5 + column;
 	return content[contentOffset + 13312 + column] >> ((content[contentOffset + (offset << 3) + (y & 7)] >> bit & 1) << 2);
 }
 
@@ -14113,7 +14256,7 @@ static int RECOIL_GetShfPixel(uint8_t const *content, int x, int y)
 			return content[1003];
 	}
 	y++;
-	int offset = (y & -8) * 5 + column;
+	int offset = (y & ~7) * 5 + column;
 	return content[16 + ((y & 7) << 10) + offset] >> ((content[8306 + (offset << 3) + (y & 7)] >> bit & 1) << 2);
 }
 
@@ -14186,7 +14329,7 @@ static void RECOIL_DecodeUflFrame(RECOIL *self, uint8_t const *content, int bitm
 	for (int y = 0; y < 200; y++) {
 		for (int x = 0; x < 288; x++) {
 			int column = x >> 3;
-			int offset = 3 + (y & -8) * 5 + column;
+			int offset = 3 + (y & ~7) * 5 + column;
 			int c = content[videoMatrixOffset + ((y & 6) << 9) + offset];
 			if ((content[bitmapOffset + (offset << 3) + (y & 7)] >> (~x & 7) & 1) != 0)
 				c >>= 4;
@@ -14259,7 +14402,7 @@ static bool RECOIL_DecodeXfl(RECOIL *self, uint8_t const *content, int contentLe
 		}
 		for (int x = 0; x < 192; x++) {
 			int column = x >> 3;
-			int offset = ((1 + y) & -8) * 5 + 16 + column;
+			int offset = ((1 + y) & ~7) * 5 + 16 + column;
 			int c;
 			if ((unpacked[8192 + (offset << 3) + ((1 + y) & 7)] >> (~x & 7) & 1) != 0)
 				c = unpacked[(((y - 1) & 7) << 10) + offset] >> 4;
@@ -14309,7 +14452,7 @@ static bool RECOIL_DecodeMufFrame(RECOIL *self, uint8_t const *content, int pixe
 		int videoMatrixOffset = RECOIL_GetNufVideoMatrixOffset(y) - 256;
 		for (int x = 0; x < 296; x++) {
 			int column = x >> 3;
-			int offset = (y & -8) * 5 + 3 + column;
+			int offset = (y & ~7) * 5 + 3 + column;
 			int c = content[videoMatrixOffset + offset];
 			if ((content[16130 - ((y & 128) << 7) + (offset << 3) + (y & 7)] >> (~x & 7) & 1) != 0)
 				c >>= 4;
@@ -14423,7 +14566,7 @@ static bool RECOIL_DecodeNuf(RECOIL *self, uint8_t const *content, int contentLe
 		int videoMatrixOffset = RECOIL_GetNufVideoMatrixOffset(y);
 		for (int x = 0; x < 320; x++) {
 			int column = x >> 3;
-			int offset = (y & -8) * 5 + column;
+			int offset = (y & ~7) * 5 + column;
 			int c = column >= 3 || (y & 6) == 0 ? content[videoMatrixOffset + offset] : 255;
 			if ((content[(y < 128 ? 16386 : 2) + (offset << 3) + (y & 7)] >> (~x & 7) & 1) != 0)
 				c >>= 4;
@@ -14568,7 +14711,7 @@ static int RECOIL_CopyPscLines(uint8_t *unpacked, int unpackedOffset, int unpack
 	if (unpackedOffset < unpackedStride || unpackedOffset + count * unpackedStride > unpackedLength)
 		return -1;
 	do {
-		memcpy(unpacked + unpackedOffset, unpacked + unpackedOffset - unpackedStride, unpackedStride);
+		memcpy(unpacked + unpackedOffset, unpacked + (unpackedOffset - unpackedStride), unpackedStride);
 		unpackedOffset += unpackedStride;
 	}
 	while (--count > 0);
@@ -14662,7 +14805,7 @@ static bool RECOIL_DecodeCp3(RECOIL *self, uint8_t const *content, int contentLe
 		if (unpackedOffset + count > 32000)
 			return false;
 		for (int offset = 0; offset < count; offset += 8)
-			memcpy(unpacked + unpackedOffset + offset, content + valueOffset, 8);
+			memcpy(unpacked + (unpackedOffset + offset), content + valueOffset, 8);
 		valueOffset += 8;
 		unpackedOffset += count;
 	}
@@ -15199,7 +15342,7 @@ static bool RECOIL_DecodeGraphicsProcessor(RECOIL *self, uint8_t const *content,
 				return false;
 			contentOffset += 1 + bitplanes;
 		}
-		memcpy(unpacked + unpackedOffset, content + contentOffset - bitplanes, bitplanes);
+		memcpy(unpacked + unpackedOffset, content + (contentOffset - bitplanes), bitplanes);
 		count--;
 	}
 	return RECOIL_DecodeSt(self, unpacked, 0, content, 2, mode, 0);
@@ -15471,13 +15614,13 @@ static bool RECOIL_DecodeGrx(RECOIL *self, uint8_t const *content, int contentLe
 		int packed2Offset = 1586 + packed1Length;
 		if (contentLength != packed2Offset + RECOIL_Get32BigEndian(content, 1582))
 			return false;
-		uint8_t *unpacked = (uint8_t *) CiShared_Make(bitmapLength, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) FuShared_Make(bitmapLength, sizeof(uint8_t), NULL, NULL);
 		if (!RECOIL_UnpackGrx(content, 1586, packed2Offset, unpacked, 0, bitmapLength >> 1) || !RECOIL_UnpackGrx(content, packed2Offset, contentLength, unpacked, bitmapLength >> 1, bitmapLength)) {
-			CiShared_Release(unpacked);
+			FuShared_Release(unpacked);
 			return false;
 		}
 		RECOIL_DecodeBitplanes(self, unpacked, 0, contentStride, bitplanes, 0, width, height);
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return true;
 	default:
 		return false;
@@ -15508,7 +15651,7 @@ static bool RECOIL_DecodeCptFul(RECOIL *self, uint8_t const *content, int conten
 		do {
 			if (offset >= 16000)
 				return false;
-			memcpy(unpacked + (offset << 1), content + contentOffset + 4, bitplanes << 1);
+			memcpy(unpacked + (offset << 1), content + (contentOffset + 4), bitplanes << 1);
 			isFilled[offset] = 1;
 			offset += bitplanes;
 		}
@@ -15697,9 +15840,9 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 	rle.base.base.base.contentLength = contentLength;
 	int bytesPerBitplane = (width + 7) >> 3;
 	if (bitplanes == 24)
-		bytesPerBitplane = (bytesPerBitplane + 1) & -2;
+		bytesPerBitplane = (bytesPerBitplane + 1) & ~1;
 	int bytesPerLine = bitplanes * bytesPerBitplane;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(bytesPerLine, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerLine, sizeof(uint8_t), NULL, NULL);
 	for (int y = 0; y < height;) {
 		int lineRepeatCount = ImgStream_GetLineRepeatCount(&rle);
 		if (lineRepeatCount > height - y)
@@ -15707,7 +15850,7 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 		for (int x = 0; x < bytesPerLine; x++) {
 			int b = RleStream_ReadRle(&rle.base);
 			if (b < 0) {
-				CiShared_Release(unpacked);
+				FuShared_Release(unpacked);
 				return false;
 			}
 			if (b != 256)
@@ -15737,7 +15880,7 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 		}
 		y += lineRepeatCount;
 	}
-	CiShared_Release(unpacked);
+	FuShared_Release(unpacked);
 	return true;
 }
 
@@ -15952,7 +16095,7 @@ static bool RECOIL_DecodeSps(RECOIL *self, uint8_t const *content, int contentLe
 	if ((content[contentLength - 1] & 1) == 0) {
 		for (int bitplane = 0; bitplane < 8; bitplane += 2) {
 			for (int x = 0; x < 40; x++) {
-				if (!RleStream_Unpack(&rle.base, unpacked, 160 + ((x & -2) << 2) + bitplane + (x & 1), 160, 32000))
+				if (!RleStream_Unpack(&rle.base, unpacked, 160 + ((x & ~1) << 2) + bitplane + (x & 1), 160, 32000))
 					return false;
 			}
 		}
@@ -16003,18 +16146,18 @@ static bool RECOIL_DecodeSpxV2(RECOIL *self, uint8_t const *content, int content
 	if (bitmapLength != 8 + packedLength || packedEnd > contentLength || packedEnd < 0)
 		return false;
 	stream->base.contentOffset = packedEnd;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) FuShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
 	if (!SpxStream_UnpackV2(stream, unpacked, unpackedLength)) {
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return false;
 	}
 	if (paletteOffset == 98336 && unpackedLength == 155552) {
 		bool returnValue = RECOIL_DecodeSpuVariable(self, unpacked, 597, 160, 98240, false);
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return returnValue;
 	}
 	bool returnValue = RECOIL_DecodeSpuVariable(self, unpacked, (unpackedLength - paletteOffset) / 96, 320, paletteOffset, false);
-	CiShared_Release(unpacked);
+	FuShared_Release(unpacked);
 	return returnValue;
 }
 
@@ -16060,19 +16203,19 @@ static bool RECOIL_DecodeSpx(RECOIL *self, uint8_t const *content, int contentLe
 	if (bitmapLength <= 0 || bitmapLength % 160 != 0)
 		return false;
 	int height = bitmapLength / 160;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(height << 8, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) FuShared_Make(height << 8, sizeof(uint8_t), NULL, NULL);
 	int paletteLength = RECOIL_Get32BigEndian(content, stream.base.contentStart - 4);
 	if (content[4] == 0)
-		memcpy(unpacked, content + stream.base.contentStart + 160, bitmapLength);
+		memcpy(unpacked, content + (stream.base.contentStart + 160), bitmapLength);
 	else if (content[3] == 1) {
 		if (!Ice21Stream_Unpack(&stream.base, unpacked, 0, bitmapLength)) {
-			CiShared_Release(unpacked);
+			FuShared_Release(unpacked);
 			return false;
 		}
 	}
 	if (content[5] == 0) {
 		if (paletteLength != height * 96) {
-			CiShared_Release(unpacked);
+			FuShared_Release(unpacked);
 			return false;
 		}
 		memcpy(unpacked + bitmapLength, content + paletteOffset, paletteLength);
@@ -16081,12 +16224,12 @@ static bool RECOIL_DecodeSpx(RECOIL *self, uint8_t const *content, int contentLe
 		stream.base.contentStart = paletteOffset;
 		stream.base.contentOffset = paletteOffset + paletteLength;
 		if (stream.base.contentOffset > contentLength || Ice21Stream_GetUnpackedLength(&stream.base) != height * 96 || !Ice21Stream_Unpack(&stream.base, unpacked, bitmapLength, height << 8)) {
-			CiShared_Release(unpacked);
+			FuShared_Release(unpacked);
 			return false;
 		}
 	}
 	bool returnValue = RECOIL_DecodeSpuVariable(self, unpacked, height, 0, height * 160, false);
-	CiShared_Release(unpacked);
+	FuShared_Release(unpacked);
 	return returnValue;
 }
 
@@ -16364,7 +16507,7 @@ static bool RECOIL_DecodeHrm(RECOIL *self, uint8_t const *content, int contentLe
 	self->frames = 2;
 	for (int y = 0; y < 400; y++) {
 		for (int x = 0; x < 640; x++) {
-			int offset = y * 160 + (x >> 2 & -4) + (x >> 3 & 1);
+			int offset = y * 160 + (x >> 2 & ~3) + (x >> 3 & 1);
 			int bit = ~x & 7;
 			int c = (content[offset] >> bit & 1) | (content[offset + 2] >> bit & 1) << 1;
 			static const uint8_t COLOR_OFFSETS[4] = { 80, 72, 40, 32 };
@@ -16705,9 +16848,9 @@ static bool RECOIL_DecodeDel(RECOIL *self, uint8_t const *content, int contentLe
 
 static bool RECOIL_DecodeDph(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(320000, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) FuShared_Make(320000, sizeof(uint8_t), NULL, NULL);
 	if (!CaStream_UnpackDel(content, contentLength, unpacked, 10)) {
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return false;
 	}
 	RECOIL_SetFalconPalette(self, unpacked, 0, 256);
@@ -16716,7 +16859,7 @@ static bool RECOIL_DecodeDph(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_DecodeBitplanes(self, unpacked, 77824, 320, 8, 320, 320, 240);
 	RECOIL_DecodeBitplanes(self, unpacked, 154624, 320, 8, 153600, 320, 240);
 	RECOIL_DecodeBitplanes(self, unpacked, 231424, 320, 8, 153920, 320, 240);
-	CiShared_Release(unpacked);
+	FuShared_Release(unpacked);
 	return true;
 }
 
@@ -16992,7 +17135,7 @@ static bool RECOIL_DecodePntUnpacked(RECOIL *self, uint8_t const *content, uint8
 			return false;
 		for (int y = 0; y < height; y++) {
 			RECOIL_DecodeR8G8B8Colors(bitmap, bitmapOffset, width, self->pixels, y * width);
-			bitmapOffset += ((width + 15) & -16) * 3;
+			bitmapOffset += ((width + 15) & ~15) * 3;
 		}
 		return true;
 	default:
@@ -17018,14 +17161,14 @@ static bool RECOIL_DecodeFalconPnt(RECOIL *self, uint8_t const *content, int con
 		return bitmapLength == unpackedLength && RECOIL_DecodePntUnpacked(self, content, content, bitmapOffset, width, height);
 	case 1:
 		;
-		uint8_t *unpacked = (uint8_t *) CiShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) FuShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
 		PackBitsStream rle;
 		PackBitsStream_Construct(&rle);
 		rle.base.base.base.content = content;
 		rle.base.base.base.contentOffset = bitmapOffset;
 		rle.base.base.base.contentLength = contentLength;
 		bool returnValue = PackBitsStream_UnpackBitplaneLines(&rle, unpacked, width, height, bitplanes, true, false) && RECOIL_DecodePntUnpacked(self, content, unpacked, 0, width, height);
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return returnValue;
 	default:
 		return false;
@@ -17214,7 +17357,7 @@ static bool RECOIL_DecodeAbkSprite(RECOIL *self, uint8_t const *content, int con
 				self->pixels[y * width + left + x] = self->contentPalette[RECOIL_GetBitplanePixel(content, contentOffset + 10 + y * bytesPerLine + (x >> 3), x, bitplanes, bitplaneLength)];
 		}
 		for (int y = spriteHeight; y < height; y++)
-			memset(self->pixels + y * width + left, 0, spriteWidth * sizeof(int));
+			memset(self->pixels + (y * width + left), 0, spriteWidth * sizeof(int));
 		contentOffset += 10 + bitplanes * bitplaneLength;
 		left += spriteWidth;
 	}
@@ -17250,7 +17393,7 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 	int pointsOffset = 110 + RECOIL_Get32BigEndian(content, 130);
 	if (pointsOffset < 0)
 		return false;
-	uint8_t *unpacked = (uint8_t *) CiShared_Make(bitplanes * width * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) FuShared_Make(bitplanes * width * height, sizeof(uint8_t), NULL, NULL);
 	int picOffset = 135;
 	int pic = content[134];
 	int rleBits = content[rleOffset++] << 8 | 128;
@@ -17264,14 +17407,14 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 						pointsBits <<= 1;
 						if ((pointsBits & 255) == 0) {
 							if (pointsOffset >= contentLength) {
-								CiShared_Release(unpacked);
+								FuShared_Release(unpacked);
 								return false;
 							}
 							pointsBits = content[pointsOffset++] << 1 | 1;
 						}
 						if ((pointsBits >> 8 & 1) != 0) {
 							if (rleOffset >= contentLength) {
-								CiShared_Release(unpacked);
+								FuShared_Release(unpacked);
 								return false;
 							}
 							rleBits = content[rleOffset++] << 1 | 1;
@@ -17290,7 +17433,7 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 	}
 	RECOIL_SetOcsPalette(self, content, 46, 32);
 	bool returnValue = RECOIL_DecodeAmigaPlanar(self, unpacked, 0, width << 3, height, RECOILResolution_AMIGA1X1, bitplanes, self->contentPalette);
-	CiShared_Release(unpacked);
+	FuShared_Release(unpacked);
 	return returnValue;
 }
 
@@ -17314,7 +17457,7 @@ static RECOILResolution RECOIL_GetAmigaAspectRatio(int xRatio, int yRatio, RECOI
 static RECOILResolution RECOIL_GetCamgAspectRatio(int camg, RECOILResolution resolution)
 {
 	int log;
-	switch (camg & -61440) {
+	switch (camg & ~61439) {
 	case 0:
 	case 69632:
 	case 135168:
@@ -17484,7 +17627,7 @@ static bool RECOIL_DecodeDeep(RECOIL *self, uint8_t const *content, int contentL
 			DeepStream_Destruct(&rle);
 			return true;
 		}
-		contentOffset = (chunkEndOffset + 1) & -2;
+		contentOffset = (chunkEndOffset + 1) & ~1;
 	}
 	DeepStream_Destruct(&rle);
 	return false;
@@ -17725,7 +17868,7 @@ static bool RECOIL_DecodeDctv(RECOIL *self, uint8_t const *content, int width, i
 				u >>= 2;
 				if (((x + 1) & 2) == 0)
 					u = -u;
-				int chromaOffset = (x & -2) | (y & interlace);
+				int chromaOffset = (x & ~1) | (y & interlace);
 				int v = y > interlace ? chroma[chromaOffset] : 0;
 				chroma[chromaOffset] = u;
 				if (odd == 0) {
@@ -17776,7 +17919,7 @@ static bool RECOIL_DecodeIffUnpacked(RECOIL *self, uint8_t const *unpacked, int 
 		int bytesPerBitplane = (width + 15) >> 4 << 1;
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
-				int offset = (y * bytesPerBitplane + (x >> 3 & -2)) * bitplanes + (x >> 3 & 1);
+				int offset = (y * bytesPerBitplane + (x >> 3 & ~1)) * bitplanes + (x >> 3 & 1);
 				int c = RECOIL_GetBitplanePixel(unpacked, offset, x, 24, 2);
 				RECOIL_SetScaledPixel(self, x, y, (c & 255) << 16 | (c & 65280) | c >> 16);
 			}
@@ -17939,20 +18082,20 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 			int bytesPerLine = ((width + 15) >> 4 << 1) * bitplanes;
 			uint8_t *unpacked = NULL;
 			if (compression == 2) {
-				CiShared_Assign((void **) &unpacked, (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
+				FuShared_Assign((void **) &unpacked, (uint8_t *) FuShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
 				VdatStream rle;
 				VdatStream_Construct(&rle);
 				rle.base.base.base.base.base.content = content;
 				rle.base.base.base.base.base.contentOffset = contentOffset + 8;
 				for (int bitplane = 0; bitplane < bitplanes; bitplane++) {
 					if (rle.base.base.base.base.base.contentOffset + 14 > chunkEndOffset || !RECOIL_IsStringAt(content, rle.base.base.base.base.base.contentOffset, "VDAT")) {
-						CiShared_Release(unpacked);
+						FuShared_Release(unpacked);
 						PchgPalette_Destruct(&pchg);
 						return false;
 					}
 					int nextContentOffset = rle.base.base.base.base.base.contentOffset + 8 + RECOIL_Get32BigEndian(content, rle.base.base.base.base.base.contentOffset + 4);
 					if (nextContentOffset > chunkEndOffset) {
-						CiShared_Release(unpacked);
+						FuShared_Release(unpacked);
 						PchgPalette_Destruct(&pchg);
 						return false;
 					}
@@ -17964,7 +18107,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 						for (int y = 0; y < height; y++) {
 							int b = RleStream_ReadRle(&rle.base.base.base);
 							if (b < 0) {
-								CiShared_Release(unpacked);
+								FuShared_Release(unpacked);
 								PchgPalette_Destruct(&pchg);
 								return false;
 							}
@@ -17985,7 +18128,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 				rle.base.base.base.contentLength = chunkEndOffset;
 				if (type == IffType_PBM) {
 					if (colors == 0 || !RECOIL_SetScaledSize(self, width, height, resolution)) {
-						CiShared_Release(unpacked);
+						FuShared_Release(unpacked);
 						PchgPalette_Destruct(&pchg);
 						return false;
 					}
@@ -17993,46 +18136,46 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 						for (int x = 0; x < width; x++) {
 							int b = compression == 0 ? Stream_ReadByte(&rle.base.base.base) : RleStream_ReadRle(&rle.base);
 							if (b < 0) {
-								CiShared_Release(unpacked);
+								FuShared_Release(unpacked);
 								PchgPalette_Destruct(&pchg);
 								return false;
 							}
 							RECOIL_SetScaledPixel(self, x, y, self->contentPalette[b]);
 						}
 						if ((width & 1) != 0 && (compression == 0 ? Stream_ReadByte(&rle.base.base.base) : RleStream_ReadRle(&rle.base)) < 0) {
-							CiShared_Release(unpacked);
+							FuShared_Release(unpacked);
 							PchgPalette_Destruct(&pchg);
 							return false;
 						}
 					}
-					CiShared_Release(unpacked);
+					FuShared_Release(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return true;
 				}
-				CiShared_Assign((void **) &unpacked, (uint8_t *) CiShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
+				FuShared_Assign((void **) &unpacked, (uint8_t *) FuShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
 				if (!PackBitsStream_UnpackBitplaneLines(&rle, unpacked, width, height, bitplanes, compression == 1, hasMask)) {
-					CiShared_Release(unpacked);
+					FuShared_Release(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return false;
 				}
 			}
 			if (bitplanes <= 8 && chunkEndOffset < contentLength - 8) {
-				int nextChunkOffset = (chunkEndOffset + 1) & -2;
+				int nextChunkOffset = (chunkEndOffset + 1) & ~1;
 				if (RECOIL_IsStringAt(content, nextChunkOffset, "RAST")) {
 					bool returnValue = RECOIL_DecodeRast(self, content, nextChunkOffset, contentLength, unpacked, width, height, bitplanes);
-					CiShared_Release(unpacked);
+					FuShared_Release(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return returnValue;
 				}
 				if (RECOIL_IsStringAt(content, chunkEndOffset, "RAST")) {
 					bool returnValue = RECOIL_DecodeRast(self, content, chunkEndOffset, contentLength, unpacked, width, height, bitplanes);
-					CiShared_Release(unpacked);
+					FuShared_Release(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return returnValue;
 				}
 			}
 			bool returnValue = RECOIL_DecodeIffUnpacked(self, unpacked, width, height, resolution, bitplanes, colors, camg, multiPalette);
-			CiShared_Release(unpacked);
+			FuShared_Release(unpacked);
 			PchgPalette_Destruct(&pchg);
 			return returnValue;
 		}
@@ -18042,7 +18185,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 				return false;
 			}
 			contentOffset += 8;
-			uint8_t *unpacked = (uint8_t *) CiShared_Make(chunkLength, sizeof(uint8_t), NULL, NULL);
+			uint8_t *unpacked = (uint8_t *) FuShared_Make(chunkLength, sizeof(uint8_t), NULL, NULL);
 			for (int bitplane = 0; bitplane < bitplanes; bitplane++) {
 				for (int unpackedOffset = bitplane << 1; unpackedOffset < chunkLength; unpackedOffset += bitplanes << 1) {
 					unpacked[unpackedOffset] = content[contentOffset++];
@@ -18050,11 +18193,11 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 				}
 			}
 			bool returnValue = RECOIL_DecodeIffUnpacked(self, unpacked, width, height, resolution, bitplanes, colors, camg, multiPalette);
-			CiShared_Release(unpacked);
+			FuShared_Release(unpacked);
 			PchgPalette_Destruct(&pchg);
 			return returnValue;
 		}
-		contentOffset = (chunkEndOffset + 1) & -2;
+		contentOffset = (chunkEndOffset + 1) & ~1;
 	}
 	PchgPalette_Destruct(&pchg);
 	return false;
@@ -18288,7 +18431,7 @@ static void RECOIL_DecodeAtari8Gr11PalBlend(const RECOIL *self, uint8_t const *c
 			if (y < self->height - 1)
 				frame[frameOffset + self->width + x] = (uint8_t) (c | (frame[frameOffset + self->width + x] & 15));
 		}
-		memset(frame + frameOffset + self->width, 0, self->leftSkip * sizeof(uint8_t));
+		memset(frame + (frameOffset + self->width), 0, self->leftSkip * sizeof(uint8_t));
 		contentOffset += contentStride;
 	}
 }
@@ -18316,22 +18459,20 @@ static void RECOIL_DecodeAtari8Gr0Line(const RECOIL *self, uint8_t const *charac
 			int ch = charactersOffset + (x >> 3);
 			if (characters != NULL)
 				ch = characters[ch];
-			int b = font[fontOffset + ((ch & 127) << 3) + (y & 7)];
+			int b = RECOIL_GetAtari8Gr0Pixel(font, fontOffset, ch, x, y);
 			if (lines == 10) {
 				switch (((ch & 96) + y) >> 1) {
 				case 4:
 				case 20:
 				case 36:
 				case 48:
-					b = 0;
+					b = ch >> 7;
 					break;
 				default:
 					break;
 				}
 			}
-			if (ch >= 128)
-				b ^= 255;
-			frame[frameOffset + x] = colors[b >> (~x & 7) & 1];
+			frame[frameOffset + x] = colors[b];
 		}
 		frameOffset += self->width;
 	}
@@ -18630,12 +18771,12 @@ static bool RECOIL_DecodeGr9x4(RECOIL *self, uint8_t const *content, int content
 {
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_XE4X4, 1))
 		return false;
-	uint8_t *frame = (uint8_t *) CiShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) FuShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
 	self->gtiaColors[8] = 0;
 	for (int y = 0; y < 4; y++)
 		RECOIL_DecodeAtari8Gr9(self, content, contentOffset, width >> 3, frame, y * width, width << 2, width, height >> 2);
 	RECOIL_ApplyAtari8Palette(self, frame);
-	CiShared_Release(frame);
+	FuShared_Release(frame);
 	return true;
 }
 
@@ -18659,7 +18800,7 @@ static bool RECOIL_Decode16x16x16(RECOIL *self, uint8_t const *content, int cont
 	RECOIL_SetSize(self, 64, 64, RECOILResolution_XE4X4, 1);
 	for (int y = 0; y < 64; y++) {
 		for (int x = 0; x < 64; x++) {
-			int c = content[contentOffset + ((y & -4) << 2) + (x >> 2)];
+			int c = content[contentOffset + ((y & ~3) << 2) + (x >> 2)];
 			if (c > 15)
 				return false;
 			self->pixels[(y << 6) + x] = self->atari8Palette[colbak | c];
@@ -18937,17 +19078,38 @@ static bool RECOIL_DecodeWnd(RECOIL *self, uint8_t const *content, int contentLe
 
 static bool RECOIL_DecodeAtari8Koala(RECOIL *self, uint8_t const *content, int contentOffset, int contentLength)
 {
+	if (contentOffset + 22 >= contentLength)
+		return false;
+	int rows = content[contentOffset + 12];
+	if (rows > 192)
+		return false;
 	XeKoalaStream rle;
 	XeKoalaStream_Construct(&rle);
 	rle.base.base.base.content = content;
 	rle.base.base.base.contentOffset = contentOffset;
 	rle.base.base.base.contentLength = contentLength;
-	if (!XeKoalaStream_UnpackWrapped(&rle, 7680))
+	if (!XeKoalaStream_UnpackWrapped(&rle, rows * 40))
 		return false;
-	RECOIL_SetSize(self, 320, 192, RECOILResolution_XE2X1, 1);
 	RECOIL_SetPF0123Bak(self, content, contentOffset + 13);
 	uint8_t frame[61440];
-	RECOIL_DecodeAtari8Gr15(self, rle.unpacked, 0, 40, frame, 0, 320, 192);
+	switch (content[contentOffset + 20] << 16 | content[contentOffset + 8] << 8 | rows) {
+	case 536:
+		RECOIL_SetSize(self, 320, 192, RECOILResolution_XE1X1, 1);
+		uint8_t const *font = FuResource_atari8_fnt;
+		for (int row = 0; row < 24; row++)
+			RECOIL_DecodeAtari8Gr0Line(self, rle.unpacked, row * 40, font, 0, frame, row * 2560, 8);
+		break;
+	case 3776:
+		RECOIL_SetSize(self, 320, 192, RECOILResolution_XE2X1, 1);
+		RECOIL_DecodeAtari8Gr15(self, rle.unpacked, 0, 40, frame, 0, 320, 192);
+		break;
+	case 69568:
+		RECOIL_SetSize(self, 320, 192, RECOILResolution_XE4X1, 1);
+		RECOIL_DecodeAtari8Gr9(self, rle.unpacked, 0, 40, frame, 0, 320, 320, 192);
+		break;
+	default:
+		return false;
+	}
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
 
@@ -19277,13 +19439,13 @@ static bool RECOIL_DecodeMcppVariable(RECOIL *self, uint8_t const *content, int 
 {
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_XE2X2, 1))
 		return false;
-	uint8_t *frame = (uint8_t *) CiShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) FuShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
 	RECOIL_SetPF012Bak(self, content, colorsOffset);
 	RECOIL_DecodeAtari8Gr15(self, content, bitmapOffset, width >> 3, frame, 0, width << 1, height >> 1);
 	RECOIL_SetPF012Bak(self, content, colorsOffset + 4);
 	RECOIL_DecodeAtari8Gr15(self, content, bitmapOffset + (width * height >> 4), width >> 3, frame, width, width << 1, height >> 1);
 	RECOIL_ApplyAtari8Palette(self, frame);
-	CiShared_Release(frame);
+	FuShared_Release(frame);
 	return true;
 }
 
@@ -20310,7 +20472,7 @@ static bool RECOIL_DecodeGr1(RECOIL *self, uint8_t const *content, int contentLe
 	}
 	RECOIL_SetSize(self, 320, 192, doubleHeight == 0 ? RECOILResolution_XE2X1 : RECOILResolution_XE2X2, 1);
 	uint8_t frame[61440];
-	uint8_t const *font = CiResource_atari8_fnt;
+	uint8_t const *font = FuResource_atari8_fnt;
 	for (int offset = 0; offset < charsLength; offset += 20)
 		RECOIL_DecodeAtari8Gr1Line(self, content, offset, font, 0, frame, offset << (7 + doubleHeight), doubleHeight);
 	return RECOIL_ApplyAtari8Palette(self, frame);
@@ -20384,7 +20546,7 @@ static bool RECOIL_DecodeDlm(RECOIL *self, uint8_t const *content, int contentLe
 			characters[y * 11 + x] = (uint8_t) RECOIL_ToAtari8Char(content[y * 16 + 5 + x]);
 	RECOIL_SetSize(self, 88, 128, RECOILResolution_XE1X1, 1);
 	uint8_t frame[11264];
-	RECOIL_DecodeAtari8Gr0(self, characters, 0, 11, CiResource_atari8_fnt, 0, frame);
+	RECOIL_DecodeAtari8Gr0(self, characters, 0, 11, FuResource_atari8_fnt, 0, frame);
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
 
@@ -20400,7 +20562,7 @@ static bool RECOIL_DecodeGr0(RECOIL *self, uint8_t const *content, int contentLe
 {
 	if (contentLength != 960 && contentLength != 1024)
 		return false;
-	RECOIL_DecodeAtari8Gr0Screen(self, content, CiResource_atari8_fnt);
+	RECOIL_DecodeAtari8Gr0Screen(self, content, FuResource_atari8_fnt);
 	return true;
 }
 
@@ -20409,7 +20571,7 @@ static bool RECOIL_DecodeSge(RECOIL *self, uint8_t const *content, int contentLe
 	if (contentLength != 960)
 		return false;
 	uint8_t font[1024];
-	memcpy(font, CiResource_atari8_fnt, 1024);
+	memcpy(font, FuResource_atari8_fnt, 1024);
 	for (int i = 0; i < 4; i++) {
 		font[1004 + i] = font[728 + i] = 15;
 		font[1000 + i] = font[732 + i] = 240;
@@ -20428,7 +20590,7 @@ static bool RECOIL_DecodeAn2(RECOIL *self, uint8_t const *content, int contentLe
 		return false;
 	RECOIL_SetSize(self, columns << 3, rows << 3, RECOILResolution_XE1X1, 1);
 	uint8_t frame[61440];
-	RECOIL_DecodeAtari8Gr0(self, content, 2, columns, CiResource_atari8_fnt, 0, frame);
+	RECOIL_DecodeAtari8Gr0(self, content, 2, columns, FuResource_atari8_fnt, 0, frame);
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
 
@@ -20458,7 +20620,7 @@ static bool RECOIL_DecodeAn4(RECOIL *self, uint8_t const *content, int contentLe
 	else
 		RECOIL_SetSize(self, columns << 3, rows << 4, RECOILResolution_XE2X2, 1);
 	uint8_t frame[61440];
-	uint8_t const *font = CiResource_atari8_fnt;
+	uint8_t const *font = FuResource_atari8_fnt;
 	for (int y = 0; y < rows; y++)
 		RECOIL_DecodeAtari8Gr12Line(self, content, charactersOffset + y * columns, font, 0, frame, y * columns << (6 + doubleHeight), doubleHeight);
 	return RECOIL_ApplyAtari8Palette(self, frame);
@@ -20526,7 +20688,7 @@ static bool RECOIL_DecodeAsciiArtEditor(RECOIL *self, uint8_t const *content, in
 	}
 	RECOIL_SetSize(self, columns << 3, y << 3, RECOILResolution_XE1X1, 1);
 	uint8_t frame[98304];
-	RECOIL_DecodeAtari8Gr0(self, characters, 0, 64, CiResource_atari8_fnt, 0, frame);
+	RECOIL_DecodeAtari8Gr0(self, characters, 0, 64, FuResource_atari8_fnt, 0, frame);
 	return RECOIL_ApplyAtari8Palette(self, frame);
 }
 
@@ -20613,13 +20775,13 @@ static bool RECOIL_DecodeEnvisionCommon(RECOIL *self, uint8_t const *content, in
 	}
 	if (!RECOIL_SetSize(self, columns * charWidth, rows * charHeight, resolution, 1))
 		return false;
-	uint8_t *frame = (uint8_t *) CiShared_Make(self->width * self->height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) FuShared_Make(self->width * self->height, sizeof(uint8_t), NULL, NULL);
 	for (int row = 0; row < rows; row++) {
 		int fontOffset;
 		if (fontId2Offset != NULL) {
 			fontOffset = fontId2Offset[content[8 + columns * rows + 256 + row]];
 			if (fontOffset == 0) {
-				CiShared_Release(frame);
+				FuShared_Release(frame);
 				return false;
 			}
 		}
@@ -20643,7 +20805,7 @@ static bool RECOIL_DecodeEnvisionCommon(RECOIL *self, uint8_t const *content, in
 		charactersOffset += columns;
 	}
 	RECOIL_ApplyAtari8Palette(self, frame);
-	CiShared_Release(frame);
+	FuShared_Release(frame);
 	return true;
 }
 
@@ -20813,7 +20975,7 @@ static void RECOIL_DecodeIceFrame(const RECOIL *self, uint8_t const *content, in
 				ch = (y / 24 << 8) + content[charactersOffset + (y >> 3) * 40 + col];
 				break;
 			}
-			int b = content[fontOffset + ((ch & -129) << 3) + (y >> doubleLine & 7)];
+			int b = content[fontOffset + ((ch & ~128) << 3) + (y >> doubleLine & 7)];
 			switch (mode) {
 			case IceFrameMode_GR0:
 			case IceFrameMode_GR0_GTIA9:
@@ -21483,7 +21645,7 @@ static void RECOIL_DrawSpcChar(uint8_t *pixels, int x1, int y1, int ch)
 {
 	if (ch < 32 || ch > 95)
 		return;
-	uint8_t const *font = CiResource_atari8_fnt;
+	uint8_t const *font = FuResource_atari8_fnt;
 	int fontOffset = (ch - 32) << 3;
 	for (int y = 0; y < 8 && y1 + y < 192; y++) {
 		for (int x = 0; x < 4 && x1 + x < 160; x++)
@@ -22175,14 +22337,14 @@ static bool RECOIL_DecodeG2fFrame(RECOIL *self, uint8_t const *content, int cont
 	if (contentLength < 11)
 		return false;
 	if (RECOIL_IsStringAt(content, 0, "G2FZLIB")) {
-		uint8_t *unpacked = (uint8_t *) CiShared_Make(327078, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) FuShared_Make(327078, sizeof(uint8_t), NULL, NULL);
 		InflateStream stream;
 		stream.base.content = content;
 		stream.base.contentOffset = 7;
 		stream.base.contentLength = contentLength;
 		contentLength = InflateStream_Uncompress(&stream, unpacked, 327078);
 		bool returnValue = RECOIL_DecodeG2fUnpacked(self, unpacked, contentLength, frame, yOffset);
-		CiShared_Release(unpacked);
+		FuShared_Release(unpacked);
 		return returnValue;
 	}
 	return RECOIL_DecodeG2fUnpacked(self, content, contentLength, frame, yOffset);
@@ -22224,27 +22386,27 @@ static bool RECOIL_DecodeVsc(RECOIL *self, const char *vscFilename, uint8_t cons
 			break;
 		}
 	}
-	uint8_t *frame = (uint8_t *) CiShared_Make(336 * height, sizeof(uint8_t), NULL, NULL);
-	uint8_t *g2f = (uint8_t *) CiShared_Make(327078, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) FuShared_Make(336 * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *g2f = (uint8_t *) FuShared_Make(327078, sizeof(uint8_t), NULL, NULL);
 	s.contentOffset = 0;
 	self->resolution = RECOILResolution_XE4X1;
 	for (height = 0;; height += 240) {
 		int filenameOffset = s.contentOffset;
 		if (!Stream_SkipUntilByte(&s, '\n'))
 			break;
-		char *filename = CiString_Substring((const char *) content + filenameOffset, s.contentOffset - 2 - filenameOffset);
+		char *filename = FuString_Substring((const char *) content + filenameOffset, s.contentOffset - 2 - filenameOffset);
 		contentLength = RECOIL_ReadSiblingFile(self, vscFilename, filename, g2f, 327078);
 		if (!RECOIL_DecodeG2fFrame(self, g2f, contentLength, frame, height)) {
 			free(filename);
-			CiShared_Release(g2f);
-			CiShared_Release(frame);
+			FuShared_Release(g2f);
+			FuShared_Release(frame);
 			return false;
 		}
 		free(filename);
 	}
 	bool returnValue = RECOIL_SetSize(self, 336, height, self->resolution, 1) && RECOIL_ApplyAtari8Palette(self, frame);
-	CiShared_Release(g2f);
-	CiShared_Release(frame);
+	FuShared_Release(g2f);
+	FuShared_Release(frame);
 	return returnValue;
 }
 
@@ -22627,7 +22789,7 @@ static bool RECOIL_DecodeFlf(RECOIL *self, uint8_t const *content, int contentLe
 		int columns = content[15];
 		int rows = content[16];
 		int length = columns * rows;
-		return contentLength >= 45 + (length << 1) && RECOIL_DecodePetScreen(self, content, 29 + length, 29, 13, columns, rows);
+		return contentLength >= 45 + (length << 1) && RECOIL_DecodePetScreen(self, content, 29 + length, 29, content[13], columns, rows);
 	case 9:
 		if (content[12] != 6)
 			return false;
@@ -22822,6 +22984,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 540239203:
 	case 543974755:
 	case 1768711779:
+	case 544761699:
 	case 539256931:
 	case 540305507:
 	case 540436579:
@@ -23034,6 +23197,8 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 544043122:
 	case 544370795:
 	case 544437099:
+	case 540308587:
+	case 544830571:
 	case 543515500:
 	case 544040044:
 	case 544171372:
@@ -23100,6 +23265,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 544828518:
 	case 540238192:
 	case 543383920:
+	case 1953456752:
 	case 544760432:
 	case 540107632:
 	case 540173168:
@@ -23435,6 +23601,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeCel(self, content, contentLength);
 	case 1768711779:
 		return RECOIL_DecodeCfli(self, content, contentLength);
+	case 544761699:
+		return RECOIL_DecodeCgx(self, content, contentLength);
 	case 539256931:
 		return RECOIL_DecodeChrd(self, content, contentLength);
 	case 540305507:
@@ -23804,6 +23972,9 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeKpr(self, content, contentLength);
 	case 544437099:
 		return RECOIL_DecodeKss(self, content, contentLength);
+	case 540308587:
+	case 544830571:
+		return RECOIL_DecodeKty(self, content, contentLength);
 	case 543515500:
 		return RECOIL_DecodeLce(self, content, contentLength);
 	case 544040044:
@@ -23927,6 +24098,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeStPpp(self, content, contentLength);
 	case 543383920:
 		return RECOIL_DecodePac(self, content, contentLength);
+	case 1953456752:
+		return RECOIL_DecodePbot(self, content, contentLength);
 	case 544760432:
 		return RECOIL_DecodePbx(self, content, contentLength);
 	case 540107632:
@@ -24599,7 +24772,7 @@ int RECOIL_GetFrames(const RECOIL *self)
 static void RECOIL_CalculatePalette(RECOIL *self)
 {
 	if (self->colorInUse == NULL)
-		CiShared_Assign((void **) &self->colorInUse, (uint8_t *) CiShared_Make(2097152, sizeof(uint8_t), NULL, NULL));
+		FuShared_Assign((void **) &self->colorInUse, (uint8_t *) FuShared_Make(2097152, sizeof(uint8_t), NULL, NULL));
 	memset(self->colorInUse, 0, 2097152 * sizeof(uint8_t));
 	self->colors = 0;
 	memset(self->palette, 0, sizeof(self->palette));
@@ -24647,12 +24820,12 @@ int const *RECOIL_ToPalette(RECOIL *self)
 		RECOIL_CalculatePalette(self);
 	if (self->colors > 256)
 		return NULL;
-	qsort(self->palette, self->colors, sizeof(int), CiCompare_int);
+	qsort(self->palette, self->colors, sizeof(int), FuCompare_int);
 	int pixelsLength = self->width * self->height;
 	if (self->indexesLength < pixelsLength) {
 		self->indexesLength = pixelsLength;
-		CiShared_Assign((void **) &self->indexes, NULL);
-		CiShared_Assign((void **) &self->indexes, (uint8_t *) CiShared_Make(pixelsLength, sizeof(uint8_t), NULL, NULL));
+		FuShared_Assign((void **) &self->indexes, NULL);
+		FuShared_Assign((void **) &self->indexes, (uint8_t *) FuShared_Make(pixelsLength, sizeof(uint8_t), NULL, NULL));
 	}
 	for (int i = 0; i < pixelsLength; i++)
 		self->indexes[i] = (uint8_t) RECOIL_FindInSortedPalette(self, self->pixels[i]);

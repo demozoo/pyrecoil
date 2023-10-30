@@ -1,4 +1,4 @@
-// Generated automatically with "cito". Do not edit.
+// Generated automatically with "fut". Do not edit.
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,17 +18,17 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * RECOIL version - minor part.
  */
-#define RECOIL_VERSION_MINOR 3
+#define RECOIL_VERSION_MINOR 4
 
 /**
  * RECOIL version - micro part.
  */
-#define RECOIL_VERSION_MICRO 4
+#define RECOIL_VERSION_MICRO 0
 
 /**
  * RECOIL version as a string.
  */
-#define RECOIL_VERSION "6.3.4"
+#define RECOIL_VERSION "6.4.0"
 
 /**
  * Years RECOIL was created in.
