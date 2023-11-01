@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="pyrecoil",
-    version="0.3.8",
+    version="0.3.9",
     packages=['recoil'],
     ext_modules=[recoil_module],
     include_package_data=True,
@@ -29,6 +29,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
     ],
     url="http://github.com/demozoo/pyrecoil",
