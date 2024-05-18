@@ -864,6 +864,8 @@ static int ImgStream_GetLineRepeatCount(ImgStream *self);
 
 static bool ImgStream_ReadCommand(ImgStream *self);
 
+static bool ImgStream_UnpackLine(ImgStream *self, uint8_t *unpacked, int unpackedLength, int y);
+
 struct CaStream {
 	RleStream base;
 	int escape;
@@ -1708,7 +1710,7 @@ static bool RECOIL_DecodeSc4(RECOIL *self, uint8_t const *content, int contentLe
 
 static int RECOIL_GetMsx128Height(const RECOIL *self, uint8_t const *content, int contentLength);
 
-static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int contentOffset, int x, bool usePalette);
+static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int contentOffset, int x, int width, bool usePalette);
 
 static void RECOIL_DecodeMsxScreen(RECOIL *self, uint8_t const *content, int contentOffset, uint8_t const *interlace, int height, int mode, int interlaceMask);
 
@@ -1830,6 +1832,8 @@ static bool RECOIL_DecodeSsx(RECOIL *self, uint8_t const *content, int contentLe
 
 static int RECOIL_GetX68KColor(int color);
 
+static int RECOIL_RestrictPlatformColor(const RECOIL *self, int rgb, int colors);
+
 static bool RECOIL_DecodeX68KPicChain(RECOIL *self, BitStream *stream, int pixelsOffset, int color);
 
 static bool RECOIL_DecodeX68KPicScreen(RECOIL *self, X68KPicStream *stream, int pixelsLength, int platform, int depth);
@@ -1872,9 +1876,9 @@ static bool RECOIL_DecodeQ4(RECOIL *self, uint8_t const *content, int contentLen
 
 static RECOILResolution RECOIL_GetPiPlatform(uint8_t const *content, int contentOffset, bool highPixel);
 
-static bool RECOIL_DecodePi(RECOIL *self, uint8_t const *content, int contentLength);
+static void RECOIL_SetPiPalette(RECOIL *self, uint8_t const *content, int paletteOffset, int colors, int rOffset);
 
-static void RECOIL_SetMagPalette(RECOIL *self, uint8_t const *content, int paletteOffset, int colors);
+static bool RECOIL_DecodePi(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeMaki1(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -2181,7 +2185,7 @@ static bool RECOIL_IsStePalette(uint8_t const *content, int contentOffset, int c
 
 static int RECOIL_GetStColor(const RECOIL *self, uint8_t const *content, int contentOffset);
 
-static void RECOIL_SetStPalette(RECOIL *self, uint8_t const *content, int contentOffset, int colors);
+static void RECOIL_SetStPalette(RECOIL *self, uint8_t const *content, int contentOffset, int colors, int c);
 
 static int RECOIL_GetSteInterlacedColor(int rgb);
 
@@ -2263,11 +2267,9 @@ static bool RECOIL_DecodeFul(RECOIL *self, uint8_t const *content, int contentLe
 
 static void RECOIL_SetDefaultStPalette(RECOIL *self, int bitplanes);
 
-static bool RECOIL_IsTimg(uint8_t const *content);
-
 static bool RECOIL_IsXimg(uint8_t const *content);
 
-static bool RECOIL_IsSttt(uint8_t const *content, int bitplanes);
+static bool RECOIL_DecodeSttt(RECOIL *self, ImgStream *rle, int width, int bytesPerBitplane);
 
 static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -2375,7 +2377,11 @@ static bool RECOIL_DecodeTcp(RECOIL *self, uint8_t const *content, int contentLe
 
 static bool RECOIL_DecodeTre(RECOIL *self, uint8_t const *content, int contentLength);
 
+static bool RECOIL_IsRag(uint8_t const *content, int contentLength);
+
 static bool RECOIL_DecodeRag(RECOIL *self, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeRagc(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeFalconFun(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -3554,8 +3560,12 @@ static void ArtPalette_Construct(ArtPalette *self)
 
 static void ArtPalette_SetLinePalette(ArtPalette *self, RECOIL *recoil, int y)
 {
-	if ((y & 1) == 0)
-		RECOIL_SetStPalette(recoil, self->base.base.base.content, 32768 + (y << 4), 16);
+	if (y == 0)
+		RECOIL_SetStPalette(recoil, self->base.base.base.content, 32768, 16, 0);
+	else if (self->base.base.base.contentOffset < 36864 && self->base.base.base.content[self->base.base.base.contentOffset] == 0 && self->base.base.base.content[self->base.base.base.contentOffset + 1] == y) {
+		RECOIL_SetStPalette(recoil, self->base.base.base.content, self->base.base.base.contentOffset, 16, 1);
+		self->base.base.base.contentOffset += 32;
+	}
 }
 
 static void GfaArtistPalette_Construct(GfaArtistPalette *self)
@@ -3570,7 +3580,7 @@ static void GfaArtistPalette_Construct(GfaArtistPalette *self)
 
 static void GfaArtistPalette_SetLinePalette(GfaArtistPalette *self, RECOIL *recoil, int y)
 {
-	RECOIL_SetStPalette(recoil, self->base.base.base.content, 32036 + ((y + 5) / 3 << 5), 16);
+	RECOIL_SetStPalette(recoil, self->base.base.base.content, 32036 + ((y + 5) / 3 << 5), 16, 0);
 }
 
 static void RastPalette_Construct(RastPalette *self)
@@ -3588,7 +3598,7 @@ static void RastPalette_SetLinePalette(RastPalette *self, RECOIL *recoil, int y)
 	int paletteLength = (1 + self->colors) << 1;
 	for (int offset = self->base.base.base.contentOffset; offset <= self->base.base.base.contentLength - paletteLength; offset += paletteLength) {
 		if (y == (self->base.base.base.content[offset] << 8 | self->base.base.base.content[offset + 1])) {
-			RECOIL_SetStPalette(recoil, self->base.base.base.content, offset + 2, self->colors);
+			RECOIL_SetStPalette(recoil, self->base.base.base.content, offset + 2, self->colors, 0);
 			break;
 		}
 	}
@@ -4910,7 +4920,7 @@ static int ImgStream_GetLineRepeatCount(ImgStream *self)
 {
 	if (self->base.repeatCount == 0 && self->base.base.base.contentOffset < self->base.base.base.contentLength - 4 && self->base.base.base.content[self->base.base.base.contentOffset] == 0 && self->base.base.base.content[self->base.base.base.contentOffset + 1] == 0 && self->base.base.base.content[self->base.base.base.contentOffset + 2] == 255) {
 		self->base.base.base.contentOffset += 4;
-		return self->base.base.base.content[self->base.base.base.contentOffset - 1] + 1;
+		return self->base.base.base.content[self->base.base.base.contentOffset - 1];
 	}
 	return 1;
 }
@@ -4956,6 +4966,20 @@ static bool ImgStream_ReadCommand(ImgStream *self)
 		self->base.repeatValue = b >= 128 ? 255 : 0;
 		return true;
 	}
+}
+
+static bool ImgStream_UnpackLine(ImgStream *self, uint8_t *unpacked, int unpackedLength, int y)
+{
+	for (int x = 0; x < unpackedLength; x++) {
+		int b = RleStream_ReadRle(&self->base);
+		if (b < 0)
+			return false;
+		if (b != 256)
+			unpacked[x] = (uint8_t) b;
+		else if (y == 0)
+			unpacked[x] = 0;
+	}
+	return true;
 }
 
 static void CaStream_Construct(CaStream *self)
@@ -5947,6 +5971,8 @@ static bool Ice21Stream_Unpack(Ice21Stream *self, uint8_t *unpacked, int unpacke
 			return false;
 		case 1:
 			length = Ice21Stream_ReadLiteralLength(self);
+			if (length < 0)
+				return false;
 			if (length > unpackedOffset - unpackedStart)
 				length = unpackedOffset - unpackedStart;
 			self->contentOffset -= length;
@@ -9946,13 +9972,13 @@ static int RECOIL_GetMsx128Height(const RECOIL *self, uint8_t const *content, in
 	return height < 212 ? height : 212;
 }
 
-static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int contentOffset, int x, bool usePalette)
+static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int contentOffset, int x, int width, bool usePalette)
 {
 	int y = content[contentOffset + x] >> 3;
 	if (usePalette && (y & 1) != 0)
 		return self->contentPalette[y >> 1];
 	int rgb;
-	if ((x | 3) >= self->width) {
+	if ((x | 3) >= width) {
 		rgb = y * 65793;
 	}
 	else {
@@ -10010,10 +10036,10 @@ static void RECOIL_DecodeMsxScreen(RECOIL *self, uint8_t const *content, int con
 				rgb = self->contentPalette[screen[screenOffset + (y >> interlaceMask << 8) + (x >> interlaceMask)]];
 				break;
 			case 10:
-				rgb = RECOIL_DecodeMsxYjk(self, screen, screenOffset + (y >> interlaceMask << 8), x >> interlaceMask, true);
+				rgb = RECOIL_DecodeMsxYjk(self, screen, screenOffset + (y >> interlaceMask << 8), x >> interlaceMask, 256, true);
 				break;
 			case 12:
-				rgb = RECOIL_DecodeMsxYjk(self, screen, screenOffset + (y >> interlaceMask << 8), x >> interlaceMask, false);
+				rgb = RECOIL_DecodeMsxYjk(self, screen, screenOffset + (y >> interlaceMask << 8), x >> interlaceMask, 256, false);
 				break;
 			default:
 				abort();
@@ -10342,7 +10368,7 @@ static void RECOIL_DecodeMsxYjkScreen(RECOIL *self, uint8_t const *content, int 
 	int width = RECOIL_GetOriginalWidth(self);
 	for (int y = 0; y < self->height; y++)
 		for (int x = 0; x < width; x++)
-			RECOIL_SetScaledPixel(self, x, y, RECOIL_DecodeMsxYjk(self, content, contentOffset + y * width, x, usePalette));
+			RECOIL_SetScaledPixel(self, x, y, RECOIL_DecodeMsxYjk(self, content, contentOffset + y * width, x, width, usePalette));
 }
 
 static void RECOIL_DecodeSccSca(RECOIL *self, const char *filename, uint8_t const *content, int contentLength, int height, bool usePalette)
@@ -11050,7 +11076,7 @@ static bool RECOIL_DecodeApfShr(RECOIL *self, uint8_t const *content, int conten
 			if (chunkLength <= 0)
 				return false;
 			contentOffset += chunkLength;
-			if (contentOffset < 0 || contentOffset + 6415 > contentLength)
+			if (contentOffset < 0 || contentOffset > contentLength - 6415)
 				break;
 			chunkLength = RECOIL_Get32LittleEndian(content, contentOffset);
 			if (chunkLength == 6415 && content[contentOffset + 4] == 8 && RECOIL_IsStringAt(content, contentOffset + 5, "MULTIPAL") && content[contentOffset + 13] == 200 && content[contentOffset + 14] == 0) {
@@ -11077,8 +11103,10 @@ static bool RECOIL_DecodeApfShr(RECOIL *self, uint8_t const *content, int conten
 				return false;
 			RECOIL_SetAppleIIGSPalette(self, content, 15 + (palette << 5), 0);
 		}
+		int nextLineOffset = stream.base.contentOffset + content[dirOffset + (y << 2)] + (content[dirOffset + (y << 2) + 1] << 8);
 		if (!RECOIL_DecodePackBytes(self, &stream, y * width, bytesPerLine))
 			return false;
+		stream.base.contentOffset = nextLineOffset;
 	}
 	return true;
 }
@@ -11253,6 +11281,37 @@ static int RECOIL_GetX68KColor(int color)
 	return rgb | (rgb >> 6 & 197379);
 }
 
+static int RECOIL_RestrictPlatformColor(const RECOIL *self, int rgb, int colors)
+{
+	switch (self->resolution) {
+	case RECOILResolution_FM_TOWNS1X1:
+		return (rgb & 16316664) | (rgb >> 5 & 460551);
+	case RECOILResolution_MSX21X1:
+	case RECOILResolution_MSX21X2:
+	case RECOILResolution_MSX21X1I:
+	case RECOILResolution_MSX22X1I:
+	case RECOILResolution_MSX2_PLUS1X1:
+	case RECOILResolution_MSX2_PLUS2X1I:
+		rgb &= 14737632;
+		return rgb | rgb >> 3 | (rgb >> 6 & 197379);
+	case RECOILResolution_PC881X2:
+		rgb &= 15790320;
+		return rgb | rgb >> 4;
+	case RECOILResolution_PC88_VA1X1:
+		return (rgb & 16317688) | (rgb >> 5 & 458759) | (rgb >> 6 & 768);
+	case RECOILResolution_PC981X1:
+		if (colors == 16) {
+			rgb &= 15790320;
+			rgb |= rgb >> 4;
+		}
+		return rgb;
+	case RECOILResolution_X68_K1X1:
+		return (rgb & 16316664) | (rgb >> 10 & 1) * 263172 | (rgb >> 6 & 197379);
+	default:
+		return rgb;
+	}
+}
+
 static bool RECOIL_DecodeX68KPicChain(RECOIL *self, BitStream *stream, int pixelsOffset, int color)
 {
 	for (;;) {
@@ -11289,7 +11348,7 @@ static bool RECOIL_DecodeX68KPicChain(RECOIL *self, BitStream *stream, int pixel
 			return false;
 		}
 		pixelsOffset += self->width;
-		if (pixelsOffset >= self->width * self->height)
+		if (pixelsOffset < 0 || pixelsOffset >= self->width * self->height)
 			return false;
 		self->pixels[pixelsOffset] = color;
 	}
@@ -11401,8 +11460,18 @@ static bool RECOIL_DecodeX68KPic(RECOIL *self, uint8_t const *content, int conte
 		if (!RECOIL_SetSize(self, width, height, resolution, 1))
 			return false;
 		break;
+	case 2:
+		if (!RECOIL_SetSize(self, width, height, RECOILResolution_FM_TOWNS1X1, 1))
+			return false;
+		stream.base.base.contentOffset += 6;
+		break;
 	case 17:
 		return depth == 16 && RECOIL_SetSize(self, width, height, RECOILResolution_PC88_VA1X1, 1) && RECOIL_DecodeX68KPicScreen(self, &stream, pixelsLength, 17, 16);
+	case 31:
+		if (!RECOIL_SetSize(self, width, height, RECOILResolution_X68_K1X1, 1))
+			return false;
+		stream.base.base.contentOffset += 6;
+		break;
 	case 33:
 		if (depth != 16 || !RECOIL_SetSize(self, width, height << 1, RECOILResolution_PC88_VA1X1, 1) || !RECOIL_DecodeX68KPicScreen(self, &stream, pixelsLength, 33, 16))
 			return false;
@@ -11412,15 +11481,9 @@ static bool RECOIL_DecodeX68KPic(RECOIL *self, uint8_t const *content, int conte
 			self->pixels[offset << 1] = RECOIL_GetG3R3B2Color(color & 255);
 		}
 		return true;
-	case 2:
+	case 194:
 		if (!RECOIL_SetSize(self, width, height, RECOILResolution_FM_TOWNS1X1, 1))
 			return false;
-		stream.base.base.contentOffset += 6;
-		break;
-	case 31:
-		if (!RECOIL_SetSize(self, width, height, RECOILResolution_X68_K1X1, 1))
-			return false;
-		stream.base.base.contentOffset += 6;
 		break;
 	default:
 		return false;
@@ -11432,7 +11495,7 @@ static bool RECOIL_DecodeX68KPic(RECOIL *self, uint8_t const *content, int conte
 			int color = BitStream_ReadBits(&stream.base, 16);
 			if (color < 0)
 				return false;
-			self->contentPalette[c] = RECOIL_GetX68KColor(color);
+			self->contentPalette[c] = RECOIL_RestrictPlatformColor(self, RECOIL_GetX68KColor(color), 1 << depth);
 		}
 		break;
 	case 15:
@@ -12019,6 +12082,8 @@ static bool RECOIL_DecodeQ4(RECOIL *self, uint8_t const *content, int contentLen
 	int chunkPixels = 0;
 	for (int i = 0; i < 256000; i++) {
 		if (--chunkPixels <= 0) {
+			if (nextChunkOffset >= contentLength - 6)
+				return false;
 			chunkPixels = (content[nextChunkOffset + 4] | content[nextChunkOffset + 5] << 8) << 1;
 			rle.base.base.base.content = content;
 			rle.base.base.base.contentOffset = nextChunkOffset;
@@ -12055,6 +12120,14 @@ static RECOILResolution RECOIL_GetPiPlatform(uint8_t const *content, int content
 		return RECOILResolution_X68_K1X1;
 	default:
 		return highPixel ? RECOILResolution_PC881X2 : RECOILResolution_PC981X1;
+	}
+}
+
+static void RECOIL_SetPiPalette(RECOIL *self, uint8_t const *content, int paletteOffset, int colors, int rOffset)
+{
+	for (int c = 0; c < colors; c++) {
+		int offset = paletteOffset + c * 3;
+		self->contentPalette[c] = RECOIL_RestrictPlatformColor(self, content[offset + rOffset] << 16 | content[offset + 1 - rOffset] << 8 | content[offset + 2], colors);
 	}
 }
 
@@ -12095,7 +12168,7 @@ static bool RECOIL_DecodePi(RECOIL *self, uint8_t const *content, int contentLen
 	}
 	s.base.base.contentOffset = contentOffset + 6 + (3 << depth);
 	if (PiStream_Unpack(&s, width, height, depth)) {
-		RECOIL_DecodeR8G8B8Colors(content, contentOffset + 6, 1 << depth, self->contentPalette, 0);
+		RECOIL_SetPiPalette(self, content, contentOffset + 6, 1 << depth, 0);
 		RECOIL_DecodeBytes(self, s.indexes, 0);
 		PiStream_Destruct(&s);
 		return true;
@@ -12104,20 +12177,12 @@ static bool RECOIL_DecodePi(RECOIL *self, uint8_t const *content, int contentLen
 	return false;
 }
 
-static void RECOIL_SetMagPalette(RECOIL *self, uint8_t const *content, int paletteOffset, int colors)
-{
-	for (int c = 0; c < colors; c++) {
-		int offset = paletteOffset + c * 3;
-		self->contentPalette[c] = content[offset + 1] << 16 | content[offset] << 8 | content[offset + 2];
-	}
-}
-
 static bool RECOIL_DecodeMaki1(RECOIL *self, uint8_t const *content, int contentLength)
 {
 	if (contentLength < 1096 || content[40] != 0 || content[41] != 0 || content[42] != 0 || content[43] != 0 || content[44] != 2 || content[45] != 128 || content[46] != 1 || content[47] != 144)
 		return false;
 	RECOIL_SetSize(self, 640, 400, RECOIL_GetPiPlatform(content, 8, false), 1);
-	RECOIL_SetMagPalette(self, content, 48, 16);
+	RECOIL_SetPiPalette(self, content, 48, 16, 1);
 	int contentOffset = 1096;
 	uint16_t haveBuffer[8000];
 	BitStream haveBlock;
@@ -12238,18 +12303,19 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 	while (content[headerOffset++] != 26);
 	if (headerOffset + 80 > contentLength || content[headerOffset] != 0)
 		return false;
-	int width = content[headerOffset + 8] - content[headerOffset + 4] + ((content[headerOffset + 9] - content[headerOffset + 5]) << 8) + 1;
-	int height = content[headerOffset + 10] - content[headerOffset + 6] + ((content[headerOffset + 11] - content[headerOffset + 7]) << 8) + 1;
+	int left = content[headerOffset + 4] + (content[headerOffset + 5] << 8);
+	int width = content[headerOffset + 8] + (content[headerOffset + 9] << 8) + 1;
 	int bytesPerLine;
 	int colors;
 	if (content[headerOffset + 3] < 128) {
+		width -= left & ~7;
 		bytesPerLine = (width + 1) >> 1;
 		colors = 16;
 	}
 	else {
 		if (headerOffset + 800 >= contentLength)
 			return false;
-		bytesPerLine = width;
+		bytesPerLine = width -= left & ~3;
 		colors = 256;
 	}
 	RECOILResolution resolution;
@@ -12315,6 +12381,7 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 		resolution = (content[headerOffset + 3] & 1) == 0 ? RECOILResolution_MSX21X1 : RECOILResolution_MSX21X2;
 		break;
 	}
+	int height = content[headerOffset + 10] - content[headerOffset + 6] + ((content[headerOffset + 11] - content[headerOffset + 7]) << 8) + 1;
 	if (!RECOIL_SetScaledSize(self, width, height, resolution))
 		return false;
 	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL);
@@ -12322,7 +12389,7 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 		FuShared_Release(unpacked);
 		return false;
 	}
-	RECOIL_SetMagPalette(self, content, headerOffset + 32, colors);
+	RECOIL_SetPiPalette(self, content, headerOffset + 32, colors, 1);
 	switch (msxMode) {
 	case 32:
 	case 36:
@@ -13789,7 +13856,7 @@ static bool RECOIL_DecodeCgx(RECOIL *self, uint8_t const *content, int contentLe
 	while (contentOffset + 8 <= contentLength) {
 		int chunkLength = RECOIL_Get32LittleEndian(content, contentOffset + 4);
 		int nextChunkOffset = contentOffset + 8 + chunkLength;
-		if (nextChunkOffset > contentLength)
+		if (nextChunkOffset < 0 || nextChunkOffset > contentLength)
 			return false;
 		if (RECOIL_IsStringAt(content, contentOffset, "FRMT") && chunkLength == 12) {
 			matrixRows = content[contentOffset + 8];
@@ -14647,10 +14714,10 @@ static bool RECOIL_DecodeBld(RECOIL *self, uint8_t const *content, int contentLe
 	if (contentLength < 5)
 		return false;
 	int width = content[0] << 8 | content[1];
-	int height = content[2] << 8 | content[3];
+	int height = (content[2] << 8) + content[3] + 1;
 	if (content[0] < 128)
-		return RECOIL_SetSize(self, width, height, RECOILResolution_ST1X1, 1) && RECOIL_DecodeBlackAndWhite(self, content, 4, contentLength, false, 16777215);
-	if (!RECOIL_SetSize(self, 65536 - width, height, RECOILResolution_ST1X1, 1))
+		return RECOIL_SetSize(self, width + 1, height, RECOILResolution_ST1X1, 1) && RECOIL_DecodeBlackAndWhite(self, content, 4, contentLength, false, 16777215);
+	if (!RECOIL_SetSize(self, 65537 - width, height, RECOILResolution_ST1X1, 1))
 		return false;
 	BldStream rle;
 	BldStream_Construct(&rle);
@@ -14941,10 +15008,10 @@ static int RECOIL_GetStColor(const RECOIL *self, uint8_t const *content, int con
 	}
 }
 
-static void RECOIL_SetStPalette(RECOIL *self, uint8_t const *content, int contentOffset, int colors)
+static void RECOIL_SetStPalette(RECOIL *self, uint8_t const *content, int contentOffset, int colors, int c)
 {
-	for (int c = 0; c < colors; c++)
-		self->contentPalette[c] = RECOIL_GetStColor(self, content, contentOffset + c * 2);
+	for (; c < colors; c++)
+		self->contentPalette[c] = RECOIL_GetStColor(self, content, contentOffset + (c << 1));
 }
 
 static int RECOIL_GetSteInterlacedColor(int rgb)
@@ -15029,7 +15096,7 @@ static int RECOIL_GetStLowPixel(uint8_t const *content, int contentOffset, int x
 static bool RECOIL_DecodeStLowWithStride(RECOIL *self, uint8_t const *bitmap, int bitmapOffset, int bitmapStride, uint8_t const *palette, int paletteOffset, int width, int height, int frames)
 {
 	RECOIL_SetSize(self, width, height, RECOIL_IsStePalette(palette, paletteOffset, 16) ? RECOILResolution_STE1X1 : RECOILResolution_ST1X1, frames);
-	RECOIL_SetStPalette(self, palette, paletteOffset, 16);
+	RECOIL_SetStPalette(self, palette, paletteOffset, 16, 0);
 	RECOIL_DecodeBitplanes(self, bitmap, bitmapOffset, bitmapStride, 4, 0, width, height);
 	return true;
 }
@@ -15042,7 +15109,7 @@ static bool RECOIL_DecodeStLow(RECOIL *self, uint8_t const *bitmap, int bitmapOf
 static void RECOIL_DecodeStMedium(RECOIL *self, uint8_t const *bitmap, int bitmapOffset, uint8_t const *palette, int paletteOffset, int width, int height, int frames)
 {
 	RECOIL_SetSize(self, width, height << 1, RECOIL_IsStePalette(palette, paletteOffset, 4) ? RECOILResolution_STE1X2 : RECOILResolution_ST1X2, frames);
-	RECOIL_SetStPalette(self, palette, paletteOffset, 4);
+	RECOIL_SetStPalette(self, palette, paletteOffset, 4, 0);
 	RECOIL_DecodeScaledBitplanes(self, bitmap, bitmapOffset, width, height * frames, 2, false, NULL);
 }
 
@@ -15096,14 +15163,14 @@ static bool RECOIL_DecodeStPi(RECOIL *self, uint8_t const *content, int contentL
 		if (content[1] != 4)
 			return false;
 		RECOIL_SetSize(self, 640, 480, RECOILResolution_TT1X1, 1);
-		RECOIL_SetStPalette(self, content, 2, 16);
+		RECOIL_SetStPalette(self, content, 2, 16, 0);
 		RECOIL_DecodeBitplanes(self, content, 34, 320, 4, 0, 640, 480);
 		return true;
 	case 154114:
 		if (content[1] != 7)
 			return false;
 		RECOIL_SetSize(self, 640, 480, RECOILResolution_TT2X1, 1);
-		RECOIL_SetStPalette(self, content, 2, 256);
+		RECOIL_SetStPalette(self, content, 2, 256, 0);
 		RECOIL_DecodeScaledBitplanes(self, content, 514, 320, 480, 8, false, NULL);
 		return true;
 	default:
@@ -15148,7 +15215,7 @@ static bool RECOIL_DecodeNeo(RECOIL *self, const char *filename, uint8_t const *
 			uint8_t rst[6801];
 			if (RECOIL_ReadCompanionFile(self, filename, "RST", "rst", rst, 6801) == 6800) {
 				RECOIL_SetSize(self, 320, 200, RECOILResolution_ST1X1, 1);
-				RECOIL_SetStPalette(self, content, 4, 16);
+				RECOIL_SetStPalette(self, content, 4, 16, 0);
 				RastPalette palette;
 				RastPalette_Construct(&palette);
 				palette.base.base.base.content = rst;
@@ -15214,6 +15281,7 @@ static bool RECOIL_DecodePaletteMaster(RECOIL *self, uint8_t const *content, int
 	ArtPalette palette;
 	ArtPalette_Construct(&palette);
 	palette.base.base.base.content = content;
+	palette.base.base.base.contentOffset = 32800;
 	RECOIL_DecodeScaledBitplanes(self, content, 0, 320, 200, 4, false, &palette.base);
 	return true;
 }
@@ -15731,31 +15799,53 @@ static void RECOIL_SetDefaultStPalette(RECOIL *self, int bitplanes)
 	self->contentPalette[(1 << bitplanes) - 1] = 0;
 }
 
-static bool RECOIL_IsTimg(uint8_t const *content)
-{
-	if (!RECOIL_IsStringAt(content, 16, "TIMG") || content[20] != 0 || content[21] != 3)
-		return false;
-	for (int i = 22; i < 28; i += 2) {
-		if (content[i] != 0 || content[i + 1] != 5)
-			return false;
-	}
-	return true;
-}
-
 static bool RECOIL_IsXimg(uint8_t const *content)
 {
 	return RECOIL_IsStringAt(content, 16, "XIMG") && content[20] == 0 && content[21] == 0;
 }
 
-static bool RECOIL_IsSttt(uint8_t const *content, int bitplanes)
+static bool RECOIL_DecodeSttt(RECOIL *self, ImgStream *rle, int width, int bytesPerBitplane)
 {
-	int colors = content[20] << 8 | content[21];
-	return RECOIL_IsStringAt(content, 16, "STTT") && colors == 1 << bitplanes;
+	int bitplanes = rle->base.base.base.content[5];
+	RECOIL_SetStPalette(self, rle->base.base.base.content, 22, 16, 0);
+	memset(self->contentPalette + 16, 0, 240 * sizeof(int));
+	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerBitplane, sizeof(uint8_t), NULL, NULL);
+	int doubleWidth = self->resolution == RECOILResolution_TT2X1 ? 1 : 0;
+	for (int bitplane = 0; bitplane < bitplanes; bitplane++) {
+		for (int y = 0; y < self->height;) {
+			int lineRepeatCount = ImgStream_GetLineRepeatCount(rle);
+			if (self->resolution == RECOILResolution_ST1X2 || self->resolution == RECOILResolution_STE1X2)
+				lineRepeatCount <<= 1;
+			if (lineRepeatCount > self->height - y)
+				lineRepeatCount = self->height - y;
+			if (!ImgStream_UnpackLine(rle, unpacked, bytesPerBitplane, y)) {
+				FuShared_Release(unpacked);
+				return false;
+			}
+			while (--lineRepeatCount >= 0) {
+				for (int x = 0; x < width; x++) {
+					int c = unpacked[x >> 3] >> (~x & 7) & 1;
+					int pixelsOffset = (y * width + x) << doubleWidth;
+					if (bitplane != 0)
+						c = c << bitplane | self->pixels[pixelsOffset];
+					if (bitplane == bitplanes - 1) {
+						c = self->contentPalette[c];
+						if (doubleWidth != 0)
+							self->pixels[pixelsOffset + 1] = c;
+					}
+					self->pixels[pixelsOffset] = c;
+				}
+				y++;
+			}
+		}
+	}
+	FuShared_Release(unpacked);
+	return true;
 }
 
 static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	if (contentLength < 17 || content[0] != 0 || content[1] == 0 || content[1] > 3 || content[4] != 0)
+	if (contentLength < 17 || content[0] != 0 || content[1] > 3 || content[4] != 0)
 		return false;
 	int headerLength = (content[2] << 8 | content[3]) << 1;
 	if (headerLength < 16 || headerLength >= contentLength)
@@ -15795,51 +15885,67 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 		RECOIL_SetSize(self, width << 1, height, RECOILResolution_TT2X1, 1);
 	else if (!RECOIL_SetSizeStOrFalcon(self, width, height, bitplanes, true))
 		return false;
-	switch (bitplanes) {
-	case 1:
-	case 2:
-	case 4:
-	case 8:
-		if (headerLength == 22 + (6 << bitplanes) && RECOIL_IsXimg(content)) {
-			for (int i = 0; i < 1 << bitplanes; i++)
-				self->contentPalette[i] = RECOIL_GetStVdiColor(content, 22 + i * 6);
-		}
-		else if (headerLength == 22 + (2 << bitplanes) && RECOIL_IsSttt(content, bitplanes))
-			RECOIL_SetStPalette(self, content, 22, 1 << bitplanes);
-		else if (bitplanes == 8) {
-			int rgb = 16777215;
-			for (int c = 0; c < 256; c++) {
-				self->contentPalette[c] = rgb;
-				for (int mask = 8421504;; mask >>= 1) {
-					rgb ^= mask;
-					if ((rgb & mask) == 0)
-						break;
-				}
-			}
-		}
-		else if (headerLength == 50 && content[16] == 0 && content[17] == 128)
-			RECOIL_SetStPalette(self, content, 18, 16);
-		else
-			RECOIL_SetDefaultStPalette(self, bitplanes);
-		break;
-	case 15:
-		if (headerLength != 28 || !RECOIL_IsTimg(content))
-			return false;
-		break;
-	case 16:
-	case 24:
-	case 32:
-		break;
-	default:
-		return false;
-	}
 	ImgStream rle;
 	ImgStream_Construct(&rle);
 	rle.base.base.base.content = content;
 	rle.base.base.base.contentOffset = headerLength;
 	rle.base.base.base.contentLength = contentLength;
 	int bytesPerBitplane = (width + 7) >> 3;
-	if (bitplanes == 24)
+	bool chunky = false;
+	if (headerLength == 28 && RECOIL_IsStringAt(content, 16, "TIMG") && content[20] == 0 && content[21] == 3 && content[22] == 0 && content[24] == 0 && content[26] == 0) {
+		switch (bitplanes << 24 | content[23] << 16 | content[25] << 8 | content[27]) {
+		case 251987205:
+		case 268764677:
+		case 403179528:
+			break;
+		default:
+			return false;
+		}
+	}
+	else {
+		switch (bitplanes) {
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+		case 8:
+			if (headerLength == 22 + (6 << bitplanes) && RECOIL_IsXimg(content)) {
+				for (int i = 0; i < 1 << bitplanes; i++)
+					self->contentPalette[i] = RECOIL_GetStVdiColor(content, 22 + i * 6);
+			}
+			else if (headerLength == 54 && RECOIL_IsStringAt(content, 16, "STTT") && content[20] == 0 && content[21] == 16)
+				return RECOIL_DecodeSttt(self, &rle, width, bytesPerBitplane);
+			else if (bitplanes == 8) {
+				int rgb = 16777215;
+				for (int c = 0; c < 256; c++) {
+					self->contentPalette[c] = rgb;
+					for (int mask = 8421504;; mask >>= 1) {
+						rgb ^= mask;
+						if ((rgb & mask) == 0)
+							break;
+					}
+				}
+			}
+			else if (bitplanes > 2 && bitplanes != 4)
+				return false;
+			else if (headerLength == 50 && content[16] == 0 && content[17] == 128)
+				RECOIL_SetStPalette(self, content, 18, 16, 0);
+			else
+				RECOIL_SetDefaultStPalette(self, bitplanes);
+			break;
+		case 16:
+		case 24:
+		case 32:
+			chunky = true;
+			break;
+		default:
+			return false;
+		}
+	}
+	if (chunky && bitplanes == 24)
 		bytesPerBitplane = (bytesPerBitplane + 1) & ~1;
 	int bytesPerLine = bitplanes * bytesPerBitplane;
 	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerLine, sizeof(uint8_t), NULL, NULL);
@@ -15847,33 +15953,44 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 		int lineRepeatCount = ImgStream_GetLineRepeatCount(&rle);
 		if (lineRepeatCount > height - y)
 			lineRepeatCount = height - y;
-		for (int x = 0; x < bytesPerLine; x++) {
-			int b = RleStream_ReadRle(&rle.base);
-			if (b < 0) {
-				FuShared_Release(unpacked);
-				return false;
-			}
-			if (b != 256)
-				unpacked[x] = (uint8_t) b;
-			else if (y == 0)
-				unpacked[x] = 0;
+		if (!ImgStream_UnpackLine(&rle, unpacked, bytesPerLine, y)) {
+			FuShared_Release(unpacked);
+			return false;
 		}
 		for (int x = 0; x < width; x++) {
 			int c;
-			switch (bitplanes) {
-			case 16:
-				c = RECOIL_GetFalconTrueColor(unpacked, x << 1);
-				break;
-			case 24:
-				c = RECOIL_GetR8G8B8Color(unpacked, x * 3);
-				break;
-			case 32:
-				c = RECOIL_GetR8G8B8Color(unpacked, (x << 2) + 1);
-				break;
-			default:
+			if (chunky) {
+				switch (bitplanes) {
+				case 16:
+					c = RECOIL_GetFalconTrueColor(unpacked, x << 1);
+					break;
+				case 24:
+					c = RECOIL_GetR8G8B8Color(unpacked, x * 3);
+					break;
+				case 32:
+					c = RECOIL_GetR8G8B8Color(unpacked, (x << 2) + 1);
+					break;
+				default:
+					abort();
+				}
+			}
+			else {
 				c = RECOIL_GetBitplanePixel(unpacked, x >> 3, x, bitplanes, bytesPerBitplane);
-				c = bitplanes == 15 ? RECOIL_GetB5G5R5Color(c) : self->contentPalette[c];
-				break;
+				switch (bitplanes) {
+				case 15:
+					c = RECOIL_GetB5G5R5Color(c);
+					break;
+				case 16:
+					c = (c & 31) << 19 | (c & 2016) << 5 | (c >> 8 & 248);
+					c |= (c >> 5 & 458759) | (c >> 6 & 768);
+					break;
+				case 24:
+					c = (c & 255) << 16 | (c & 65280) | c >> 16;
+					break;
+				default:
+					c = self->contentPalette[c];
+					break;
+				}
 			}
 			for (int i = 0; i < lineRepeatCount; i++)
 				RECOIL_SetScaledPixel(self, x, y + i, c);
@@ -15996,9 +16113,9 @@ static bool RECOIL_DecodePl4(RECOIL *self, uint8_t const *content, int contentLe
 	if (!RECOIL_UnpackLz4(self, content, contentLength, unpacked, 64070) || unpacked[0] != 0 || unpacked[1] != 0 || unpacked[32036] != 0 || unpacked[32037] != 0)
 		return false;
 	RECOIL_SetSize(self, 320, 200, RECOIL_IsStePalette(unpacked, 2, 16) || RECOIL_IsStePalette(unpacked, 32038, 16) ? RECOILResolution_STE1X1 : RECOILResolution_ST1X1, 2);
-	RECOIL_SetStPalette(self, unpacked, 2, 16);
+	RECOIL_SetStPalette(self, unpacked, 2, 16, 0);
 	RECOIL_DecodeBitplanes(self, unpacked, 34, 160, 4, 0, 320, 200);
-	RECOIL_SetStPalette(self, unpacked, 32038, 16);
+	RECOIL_SetStPalette(self, unpacked, 32038, 16, 0);
 	RECOIL_DecodeBitplanes(self, unpacked, 32070, 160, 4, 64000, 320, 200);
 	return RECOIL_ApplyBlend(self);
 }
@@ -16136,7 +16253,7 @@ static bool RECOIL_DecodeSpxV2(RECOIL *self, uint8_t const *content, int content
 	if (content[5] != 1)
 		return false;
 	int unpackedLength = RECOIL_Get32BigEndian(content, stream->base.contentStart);
-	if (unpackedLength <= 0)
+	if (unpackedLength <= 0 || unpackedLength > 134217728)
 		return false;
 	int bitmapLength = RECOIL_Get32BigEndian(content, stream->base.contentStart - 8);
 	int paletteOffset = RECOIL_Get32BigEndian(content, stream->base.contentStart - 4);
@@ -16156,7 +16273,8 @@ static bool RECOIL_DecodeSpxV2(RECOIL *self, uint8_t const *content, int content
 		FuShared_Release(unpacked);
 		return returnValue;
 	}
-	bool returnValue = RECOIL_DecodeSpuVariable(self, unpacked, (unpackedLength - paletteOffset) / 96, 320, paletteOffset, false);
+	int height = (unpackedLength - paletteOffset) / 96;
+	bool returnValue = paletteOffset >= 320 + height * 160 && RECOIL_DecodeSpuVariable(self, unpacked, height, 320, paletteOffset, false);
 	FuShared_Release(unpacked);
 	return returnValue;
 }
@@ -16247,7 +16365,7 @@ static bool RECOIL_DecodePci(RECOIL *self, uint8_t const *content, int contentLe
 	for (int y = 0; y < 556; y++) {
 		if (y == 278)
 			bitmapOffset = 48928;
-		RECOIL_SetStPalette(self, content, 97856 + (y << 5), 16);
+		RECOIL_SetStPalette(self, content, 97856 + (y << 5), 16, 0);
 		for (int x = 0; x < 352; x++)
 			self->pixels[y * 352 + x] = self->contentPalette[RECOIL_GetStLowSeparateBitplanes(content, bitmapOffset, 12232, x)];
 		bitmapOffset += 44;
@@ -16340,7 +16458,7 @@ static bool RECOIL_DecodePbx01(RECOIL *self, uint8_t const *content, int content
 	int paletteOffset = 128;
 	for (int y = 0; y < 200; y++) {
 		if (paletteOffset < 512 && y == source[paletteOffset + 33]) {
-			RECOIL_SetStPalette(self, source, paletteOffset, 16);
+			RECOIL_SetStPalette(self, source, paletteOffset, 16, 0);
 			do
 				paletteOffset += 48;
 			while (paletteOffset < 512 && source[paletteOffset + 34] == 0 && source[paletteOffset + 35] == 0);
@@ -16948,9 +17066,14 @@ static bool RECOIL_DecodeTre(RECOIL *self, uint8_t const *content, int contentLe
 	return true;
 }
 
+static bool RECOIL_IsRag(uint8_t const *content, int contentLength)
+{
+	return contentLength >= 55 && RECOIL_IsStringAt(content, 0, "RAG-D!") && content[6] == 0 && content[7] == 0 && content[16] == 0;
+}
+
 static bool RECOIL_DecodeRag(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	if (contentLength < 55 || !RECOIL_IsStringAt(content, 0, "RAG-D!") || content[6] != 0 || content[7] != 0 || content[16] != 0)
+	if (!RECOIL_IsRag(content, contentLength))
 		return false;
 	int width = content[12] << 8 | content[13];
 	if ((width & 15) != 0)
@@ -16977,20 +17100,29 @@ static bool RECOIL_DecodeRag(RECOIL *self, uint8_t const *content, int contentLe
 		if (30 + paletteLength + height * bytesPerLine > contentLength || !RECOIL_SetSize(self, width, height, RECOILResolution_FALCON1X1, 1))
 			return false;
 		if (paletteLength == 32)
-			RECOIL_SetStPalette(self, content, 30, 16);
+			RECOIL_SetStPalette(self, content, 30, 16, 0);
 		else
 			RECOIL_SetFalconPalette(self, content, 30, 256);
-		if (bitplanes == 8 && content[22] == 255) {
-			RECOIL_DecodeBytes(self, content, 30 + paletteLength);
-		}
-		else
-			RECOIL_DecodeBitplanes(self, content, 30 + paletteLength, bytesPerLine, bitplanes, 0, width, height);
+		RECOIL_DecodeBitplanes(self, content, 30 + paletteLength, bytesPerLine, bitplanes, 0, width, height);
 		return true;
 	case 16:
 		return paletteLength == 1024 && contentLength >= 1054 + width * height * 2 && RECOIL_DecodeFalconTrueColor(self, content, 1054, width, height, RECOILResolution_FALCON1X1);
 	default:
 		return false;
 	}
+}
+
+static bool RECOIL_DecodeRagc(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (!RECOIL_IsRag(content, contentLength) || content[17] != 8 || RECOIL_Get32BigEndian(content, 18) != 1024)
+		return false;
+	int width = content[12] << 8 | content[13];
+	int height = (content[14] << 8) + content[15] + 1;
+	if (1054 + width * height > contentLength || !RECOIL_SetSize(self, width, height, RECOILResolution_FALCON1X1, 1))
+		return false;
+	RECOIL_SetFalconPalette(self, content, 30, 256);
+	RECOIL_DecodeBytes(self, content, 1054);
+	return true;
 }
 
 static bool RECOIL_DecodeFalconFun(RECOIL *self, uint8_t const *content, int contentLength)
@@ -17124,8 +17256,8 @@ static bool RECOIL_DecodePntUnpacked(RECOIL *self, uint8_t const *content, uint8
 	case 8:
 		if (!RECOIL_SetSizeStOrFalcon(self, width, height, bitplanes, false))
 			return false;
-		int paletteLength = content[6] << 8 | content[7];
-		RECOIL_SetStVdiPalette(self, content, 128, paletteLength, bitplanes);
+		memset(self->contentPalette, 0, sizeof(self->contentPalette));
+		RECOIL_SetStVdiPalette(self, content, 128, content[6] << 8 | content[7], bitplanes);
 		RECOIL_DecodeScaledBitplanes(self, bitmap, bitmapOffset, width, height, bitplanes, false, NULL);
 		return true;
 	case 16:
@@ -17147,13 +17279,17 @@ static bool RECOIL_DecodeFalconPnt(RECOIL *self, uint8_t const *content, int con
 {
 	if (contentLength < 128 || content[0] != 'P' || content[1] != 'N' || content[2] != 'T' || content[3] != 0 || content[4] != 1 || content[5] != 0 || content[12] != 0 || content[14] != 0)
 		return false;
-	int paletteLength = content[6] << 8 | content[7];
-	int bitmapOffset = 128 + paletteLength * 6;
+	int colors = content[6] << 8 | content[7];
+	if (colors > 256)
+		return false;
+	int bitmapOffset = 128 + colors * 6;
 	int bitmapLength = RECOIL_Get32BigEndian(content, 16);
 	if (bitmapLength <= 0 || contentLength < bitmapOffset + bitmapLength)
 		return false;
 	int width = content[8] << 8 | content[9];
 	int height = content[10] << 8 | content[11];
+	if (width <= 0 || height > 134217728 / width)
+		return false;
 	int bitplanes = content[13];
 	int unpackedLength = ((width + 15) >> 4 << 1) * height * bitplanes;
 	switch (content[15]) {
@@ -17217,13 +17353,13 @@ static bool RECOIL_DecodeUimg(RECOIL *self, uint8_t const *content, int contentL
 		if (!RECOIL_SetSize(self, width, height, depth > 4 ? RECOILResolution_FALCON1X1 : RECOIL_IsStePalette(content, 14, 1 << depth) ? RECOILResolution_STE1X1 : RECOILResolution_ST1X1, 1))
 			return false;
 		memset(self->contentPalette, 0, sizeof(self->contentPalette));
-		RECOIL_SetStPalette(self, content, 14, 1 << depth);
+		RECOIL_SetStPalette(self, content, 14, 1 << depth, 0);
 		break;
 	case 2:
 		if (!RECOIL_SetSize(self, width, height, RECOILResolution_TT1X1, 1))
 			return false;
 		memset(self->contentPalette, 0, sizeof(self->contentPalette));
-		RECOIL_SetStPalette(self, content, 14, 1 << depth);
+		RECOIL_SetStPalette(self, content, 14, 1 << depth, 0);
 		break;
 	case 3:
 		if (!RECOIL_SetSize(self, width, height, RECOILResolution_FALCON1X1, 1))
@@ -17339,6 +17475,8 @@ static bool RECOIL_DecodeAbkSprite(RECOIL *self, uint8_t const *content, int con
 		width += spriteWidth;
 		if (height < spriteHeight)
 			height = spriteHeight;
+		if (width <= 0 || height > 134217728 / width)
+			return false;
 		contentOffset += 10 + (spriteWidth >> 3) * spriteHeight * bitplanes;
 	}
 	if (contentOffset + 64 != contentLength || !RECOIL_SetSize(self, width, height, RECOILResolution_AMIGA1X1, 1))
@@ -17381,6 +17519,8 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 	if (content[3] != 'k' || contentLength < 135 || !RECOIL_IsStringAt(content, 12, "Pac.Pic") || content[110] != 6 || content[111] != 7 || content[112] != 25 || content[113] != 99 || content[124] != 0)
 		return false;
 	int width = content[118] << 8 | content[119];
+	if ((width & 1) != 0)
+		return false;
 	int lumps = content[120] << 8 | content[121];
 	int lumpLines = content[122] << 8 | content[123];
 	int height = lumps * lumpLines;
@@ -17419,11 +17559,14 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 							}
 							rleBits = content[rleOffset++] << 1 | 1;
 						}
-						else {
+						else
 							rleBits >>= 8;
-						}
 					}
 					if ((rleBits >> 8 & 1) != 0) {
+						if (picOffset >= contentLength) {
+							FuShared_Release(unpacked);
+							return false;
+						}
 						pic = content[picOffset++];
 					}
 					unpacked[((bitplane * lumps + lump) * lumpLines + y) * width + x] = (uint8_t) pic;
@@ -19994,7 +20137,7 @@ static bool RECOIL_DecodeRip(RECOIL *self, uint8_t const *content, int contentLe
 	int unpackedLength = contentStride * height;
 	if (content[7] == 48)
 		unpackedLength += (height + 1) >> 1 << 3;
-	uint8_t unpacked[20076] = { 0 };
+	uint8_t unpacked[20080] = { 0 };
 	switch (content[9]) {
 	case 0:
 		if (headerLength + unpackedLength > contentLength)
@@ -21609,12 +21752,12 @@ static bool RECOIL_DecodeBlazingPaddlesVectors(RECOIL *self, uint8_t const *cont
 	if (width < x)
 		width = x;
 	y += lineBottom + 1;
-	if (i == 0 || y > 240)
+	if (i == 0 || width > 160 || y > 240)
 		return false;
 	RECOIL_SetSize(self, width << 1, y, RECOILResolution_XE2X1, 1);
 	uint8_t frame[76800] = { 0 };
-	for (i = 0; i < 256; i++) {
-		if (!RECOIL_DrawBlazingPaddlesVector(self, content, contentLength, frame, (ys[i] * width + xs[i]) * 2, i, startAddress))
+	for (int j = 0; j < i; j++) {
+		if (!RECOIL_DrawBlazingPaddlesVector(self, content, contentLength, frame, (ys[j] * width + xs[j]) << 1, j, startAddress))
 			break;
 	}
 	return RECOIL_ApplyAtari8Palette(self, frame);
@@ -22378,6 +22521,7 @@ static bool RECOIL_DecodeVsc(RECOIL *self, const char *vscFilename, uint8_t cons
 			height += 240;
 			break;
 		case '/':
+		case ':':
 		case '\\':
 			return false;
 		default:
@@ -22504,31 +22648,18 @@ static bool RECOIL_DecodeAwbm(RECOIL *self, uint8_t const *content, int contentL
 {
 	int width = content[4] | content[5] << 8;
 	int height = content[6] | content[7] << 8;
-	int planeStride = (width + 7) >> 3;
-	bool colors256;
-	if (RECOIL_DecodeAwbmPalette(self, content, contentLength, 8 + width * height, 256))
-		colors256 = true;
-	else if (RECOIL_DecodeAwbmPalette(self, content, contentLength, 8 + (height * planeStride << 2), 16))
-		colors256 = false;
-	else
-		return false;
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_PC1X1, 1))
 		return false;
+	if (RECOIL_DecodeAwbmPalette(self, content, contentLength, 8 + width * height, 256)) {
+		RECOIL_DecodeBytes(self, content, 8);
+		return true;
+	}
+	int planeStride = (width + 7) >> 3;
+	if (!RECOIL_DecodeAwbmPalette(self, content, contentLength, 8 + (height * planeStride << 2), 16))
+		return false;
 	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			int c;
-			if (colors256)
-				c = content[8 + y * width + x];
-			else {
-				int offset = 8 + (y * planeStride << 2) + (x >> 3);
-				c = 0;
-				for (int bit = 0; bit < 4; bit++) {
-					c |= (content[offset] >> (~x & 7) & 1) << bit;
-					offset += planeStride;
-				}
-			}
-			self->pixels[y * width + x] = self->contentPalette[c];
-		}
+		for (int x = 0; x < width; x++)
+			self->pixels[y * width + x] = self->contentPalette[RECOIL_GetBitplanePixel(content, 8 + (y * planeStride << 2) + (x >> 3), x, 4, planeStride)];
 	}
 	return true;
 }
@@ -23308,6 +23439,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 543585136:
 	case 538981489:
 	case 543646066:
+	case 1667719538:
 	case 544235890:
 	case 544694642:
 	case 543319922:
@@ -24176,6 +24308,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeQ4(self, content, contentLength);
 	case 543646066:
 		return RECOIL_DecodeRag(self, content, contentLength);
+	case 1667719538:
+		return RECOIL_DecodeRagc(self, content, contentLength);
 	case 544235890:
 		return RECOIL_DecodeRap(self, content, contentLength);
 	case 544694642:
