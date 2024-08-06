@@ -12,7 +12,6 @@ setup(
     packages=['recoil'],
     ext_modules=[recoil_module],
     include_package_data=True,
-    test_suite="tests",
 
     author="Matt Westcott",
     author_email="matt@west.co.tt",

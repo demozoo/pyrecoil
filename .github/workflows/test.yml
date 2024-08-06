@@ -31,4 +31,4 @@ jobs:
       - name: Test
         run: |
           python ./setup.py build
-          python ./setup.py test
+          python -m unittest
