@@ -1,10 +1,21 @@
 // Generated automatically with "fut". Do not edit.
 #include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include "recoil.h"
 
-static char *FuString_Substring(const char *str, int len)
+static int FuInt_Min(int x, int y)
+{
+	return x < y ? x : y;
+}
+
+static int FuInt_Max(int x, int y)
+{
+	return x > y ? x : y;
+}
+
+static char *FuString_Substring(const char *str, size_t len)
 {
 	char *p = malloc(len + 1);
 	memcpy(p, str, len);
@@ -25,48 +36,6 @@ static void FuString_AppendSubstring(char **str, const char *suffix, size_t suff
 static void FuString_Append(char **str, const char *suffix)
 {
 	FuString_AppendSubstring(str, suffix, strlen(suffix));
-}
-
-typedef void (*FuMethodPtr)(void *);
-typedef struct {
-	size_t count;
-	size_t unitSize;
-	size_t refCount;
-	FuMethodPtr destructor;
-} FuShared;
-
-static void *FuShared_Make(size_t count, size_t unitSize, FuMethodPtr constructor, FuMethodPtr destructor)
-{
-	FuShared *self = (FuShared *) malloc(sizeof(FuShared) + count * unitSize);
-	self->count = count;
-	self->unitSize = unitSize;
-	self->refCount = 1;
-	self->destructor = destructor;
-	if (constructor != NULL) {
-		for (size_t i = 0; i < count; i++)
-			constructor((char *) (self + 1) + i * unitSize);
-	}
-	return self + 1;
-}
-
-static void FuShared_Release(void *ptr)
-{
-	if (ptr == NULL)
-		return;
-	FuShared *self = (FuShared *) ptr - 1;
-	if (--self->refCount != 0)
-		return;
-	if (self->destructor != NULL) {
-		for (size_t i = self->count; i > 0;)
-			self->destructor((char *) ptr + --i * self->unitSize);
-	}
-	free(self);
-}
-
-static void FuShared_Assign(void **ptr, void *value)
-{
-	FuShared_Release(*ptr);
-	*ptr = value;
 }
 
 static int FuCompare_int(const void *pa, const void *pb)
@@ -1710,6 +1679,8 @@ static bool RECOIL_DecodeSc4(RECOIL *self, uint8_t const *content, int contentLe
 
 static int RECOIL_GetMsx128Height(const RECOIL *self, uint8_t const *content, int contentLength);
 
+static int RECOIL_ClampU5(int x);
+
 static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int contentOffset, int x, int width, bool usePalette);
 
 static void RECOIL_DecodeMsxScreen(RECOIL *self, uint8_t const *content, int contentOffset, uint8_t const *interlace, int height, int mode, int interlaceMask);
@@ -1894,6 +1865,8 @@ static const int RECOIL_VIC20_PALETTE[16] = { 0, 16777215, 7152423, 10551032, 93
 static bool RECOIL_DecodeBp(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodePic0(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
+
+static bool RECOIL_DecodeVic20Mg(RECOIL *self, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeP4i(RECOIL *self, uint8_t const *content, int contentLength);
 
@@ -2830,7 +2803,9 @@ static bool RECOIL_DecodeVectorSpr(RECOIL *self, uint8_t const *content, int con
 
 static bool RECOIL_DecodePi9(RECOIL *self, uint8_t const *content, int contentLength);
 
-static bool RECOIL_DecodePic(RECOIL *self, uint8_t const *content, int contentLength);
+static bool RECOIL_IsPaint256(const char *filename);
+
+static bool RECOIL_DecodePic(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
 
 static bool RECOIL_DecodeScr(RECOIL *self, const char *filename, uint8_t const *content, int contentLength);
 
@@ -3687,7 +3662,7 @@ static void PchgPalette_Construct(PchgPalette *self)
 
 static void PchgPalette_Destruct(PchgPalette *self)
 {
-	FuShared_Release(self->havePaletteChange);
+	free(self->havePaletteChange);
 }
 
 static int PchgPalette_ReadHuffman(PchgPalette *self)
@@ -3735,7 +3710,8 @@ static bool PchgPalette_Init(PchgPalette *self)
 	self->startLine = self->base.base.base.content[self->base.base.base.contentOffset + 4] << 8 | self->base.base.base.content[self->base.base.base.contentOffset + 5];
 	self->lineCount = self->base.base.base.content[self->base.base.base.contentOffset + 6] << 8 | self->base.base.base.content[self->base.base.base.contentOffset + 7];
 	int havePaletteChangeLength = (self->lineCount + 31) >> 5 << 2;
-	FuShared_Assign((void **) &self->havePaletteChange, (uint8_t *) FuShared_Make(havePaletteChangeLength, sizeof(uint8_t), NULL, NULL));
+	free(self->havePaletteChange);
+	self->havePaletteChange = (uint8_t *) malloc(havePaletteChangeLength * sizeof(uint8_t));
 	switch (self->base.base.base.content[self->base.base.base.contentOffset + 1]) {
 	case 0:
 		self->base.base.base.contentOffset += 20;
@@ -5415,7 +5391,7 @@ static void DeepStream_Construct(DeepStream *self)
 
 static void DeepStream_Destruct(DeepStream *self)
 {
-	FuShared_Release(self->line);
+	free(self->line);
 }
 
 static bool DeepStream_SetDpel(DeepStream *self, int chunkOffset, int chunkLength)
@@ -5484,8 +5460,10 @@ static int DeepStream_ReadNibble(DeepStream *self)
 
 static bool DeepStream_ReadDeltaLine(DeepStream *self, int width, int tvdcOffset)
 {
-	if (self->line == NULL)
-		FuShared_Assign((void **) &self->line, (int *) FuShared_Make(width, sizeof(int), NULL, NULL));
+	if (self->line == NULL) {
+		free(self->line);
+		self->line = (int *) malloc(width * sizeof(int));
+	}
 	for (int c = 0; c < self->components; c++) {
 		int count = 0;
 		int value = 0;
@@ -6073,9 +6051,7 @@ static bool SpxStream_UnpackV2(SpxStream *self, uint8_t *unpacked, int unpackedL
 		count = SpxStream_ReadCount(self);
 		if (count < 0)
 			return false;
-		count += 3;
-		if (count > unpackedOffset)
-			count = unpackedOffset;
+		count = FuInt_Min(count + 3, unpackedOffset);
 		do {
 			unpackedOffset--;
 			unpacked[unpackedOffset] = unpacked[unpackedOffset + distance];
@@ -6194,7 +6170,7 @@ static void PiStream_Construct(PiStream *self)
 
 static void PiStream_Destruct(PiStream *self)
 {
-	FuShared_Release(self->indexes);
+	free(self->indexes);
 }
 
 static int PiStream_ReadInt(PiStream *self, int bits, int maxBits)
@@ -6259,7 +6235,8 @@ static bool PiStream_Unpack(PiStream *self, int width, int height, int depth)
 		for (int j = 0; j < colors; j++)
 			self->recentColors[i << 8 | j] = (uint8_t) ((i - j) & (colors - 1));
 	int indexesLength = width * height;
-	FuShared_Assign((void **) &self->indexes, (uint8_t *) FuShared_Make(indexesLength, sizeof(uint8_t), NULL, NULL));
+	free(self->indexes);
+	self->indexes = (uint8_t *) malloc(indexesLength * sizeof(uint8_t));
 	if (!PiStream_UnpackTwoLiterals(self, 0, indexesLength, depth))
 		return false;
 	int lastPosition = -1;
@@ -6301,9 +6278,7 @@ static bool PiStream_Unpack(PiStream *self, int width, int height, int depth)
 			default:
 				abort();
 			}
-			int copyEnd = indexesOffset + (length << 1);
-			if (copyEnd > indexesLength)
-				copyEnd = indexesLength;
+			int copyEnd = FuInt_Min(indexesOffset + (length << 1), indexesLength);
 			for (; indexesOffset < copyEnd; indexesOffset++) {
 				int sourceOffset = indexesOffset - position;
 				if (sourceOffset < 0)
@@ -6485,7 +6460,7 @@ static int FanoTree_ReadCode(const FanoTree *self, BitStream *bitStream)
 
 static void RecentInts_Construct(RecentInts *self)
 {
-	for (int _i0 = 0; _i0 < 128; _i0++) {
+	for (size_t _i0 = 0; _i0 < 128; _i0++) {
 		self->value[_i0] = 0;
 	}
 	self->head = 0;
@@ -7187,7 +7162,7 @@ static int RastaRenderer_GetPlayfieldByte(RastaRenderer *self, int y, int column
 static void RastaStream_Construct(RastaStream *self)
 {
 	RastaRenderer_Construct(&self->gtia);
-	for (int _i0 = 0; _i0 < 3; _i0++) {
+	for (size_t _i0 = 0; _i0 < 3; _i0++) {
 		self->cpuRegisters[_i0] = 0;
 	}
 }
@@ -7675,9 +7650,9 @@ static void RECOIL_Construct(RECOIL *self)
 
 static void RECOIL_Destruct(RECOIL *self)
 {
-	FuShared_Release(self->indexes);
-	FuShared_Release(self->colorInUse);
-	FuShared_Release(self->pixels);
+	free(self->indexes);
+	free(self->colorInUse);
+	free(self->pixels);
 }
 
 RECOIL *RECOIL_New(void)
@@ -7727,7 +7702,7 @@ bool RECOIL_IsNtsc(const RECOIL *self)
 static int RECOIL_GetPackedExt(const char *filename)
 {
 	int ext = 0;
-	for (int i = (int) strlen(filename); --i >= 0;) {
+	for (ptrdiff_t i = (ptrdiff_t) strlen(filename); --i >= 0;) {
 		int c = filename[i];
 		if (c == '.')
 			return ext | 538976288;
@@ -7780,8 +7755,8 @@ static bool RECOIL_SetSize(RECOIL *self, int width, int height, RECOILResolution
 	self->leftSkip = 0;
 	int pixelsLength = width * height * frames;
 	if (self->pixelsLength < pixelsLength) {
-		FuShared_Assign((void **) &self->pixels, NULL);
-		FuShared_Assign((void **) &self->pixels, (int *) FuShared_Make(pixelsLength, sizeof(int), NULL, NULL));
+		free(self->pixels);
+		self->pixels = (int *) malloc(pixelsLength * sizeof(int));
 		self->pixelsLength = pixelsLength;
 	}
 	return true;
@@ -7953,7 +7928,7 @@ static int RECOIL_ReadFile(const RECOIL *self, const char *filename, uint8_t *co
 
 static int RECOIL_ReadCompanionFile(const RECOIL *self, const char *baseFilename, const char *upperExt, const char *lowerExt, uint8_t *content, int contentLength)
 {
-	int i = (int) strlen(baseFilename);
+	ptrdiff_t i = (ptrdiff_t) strlen(baseFilename);
 	bool lower = false;
 	for (;;) {
 		int c = baseFilename[--i];
@@ -7971,7 +7946,7 @@ static int RECOIL_ReadCompanionFile(const RECOIL *self, const char *baseFilename
 
 static int RECOIL_ReadSiblingFile(const RECOIL *self, const char *baseFilename, const char *newFilename, uint8_t *content, int contentLength)
 {
-	int i = (int) strlen(baseFilename);
+	ptrdiff_t i = (ptrdiff_t) strlen(baseFilename);
 	while (i > 0 && baseFilename[i - 1] != '/' && baseFilename[i - 1] != '\\')
 		i--;
 	char *filename = FuString_Substring(baseFilename, i);
@@ -9972,6 +9947,11 @@ static int RECOIL_GetMsx128Height(const RECOIL *self, uint8_t const *content, in
 	return height < 212 ? height : 212;
 }
 
+static int RECOIL_ClampU5(int x)
+{
+	return x < 0 ? 0 : x > 31 ? 31 : x;
+}
+
 static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int contentOffset, int x, int width, bool usePalette)
 {
 	int y = content[contentOffset + x] >> 3;
@@ -9987,21 +9967,9 @@ static int RECOIL_DecodeMsxYjk(const RECOIL *self, uint8_t const *content, int c
 		int j = (content[x + 2] & 7) | (content[x + 3] & 7) << 3;
 		k -= (k & 32) << 1;
 		j -= (j & 32) << 1;
-		int r = y + j;
-		if (r < 0)
-			r = 0;
-		else if (r > 31)
-			r = 31;
-		int g = y + k;
-		if (g < 0)
-			g = 0;
-		else if (g > 31)
-			g = 31;
-		int b = (5 * y - 2 * j - k + 2) >> 2;
-		if (b < 0)
-			b = 0;
-		else if (b > 31)
-			b = 31;
+		int r = RECOIL_ClampU5(y + j);
+		int g = RECOIL_ClampU5(y + k);
+		int b = RECOIL_ClampU5((5 * y - 2 * j - k + 2) >> 2);
 		rgb = r << 16 | g << 8 | b;
 	}
 	return rgb << 3 | (rgb >> 2 & 460551);
@@ -10456,21 +10424,9 @@ static void RECOIL_DecodeG9bUnpacked(RECOIL *self, uint8_t const *content, int d
 			int u = (content[x + 2] & 7) | (content[x + 3] & 7) << 3;
 			u -= (u & 32) << 1;
 			v -= (v & 32) << 1;
-			int r = y + u;
-			if (r < 0)
-				r = 0;
-			else if (r > 31)
-				r = 31;
-			int g = (((5 * y - v) >> 1) - u) >> 1;
-			if (g < 0)
-				g = 0;
-			else if (g > 31)
-				g = 31;
-			int b = y + v;
-			if (b < 0)
-				b = 0;
-			else if (b > 31)
-				b = 31;
+			int r = RECOIL_ClampU5(y + u);
+			int g = RECOIL_ClampU5((((5 * y - v) >> 1) - u) >> 1);
+			int b = RECOIL_ClampU5(y + v);
 			int rgb = r << 16 | g << 8 | b;
 			self->pixels[i] = rgb << 3 | (rgb >> 2 & 460551);
 		}
@@ -10549,7 +10505,7 @@ static bool RECOIL_DecodeG9b(RECOIL *self, uint8_t const *content, int contentLe
 		return true;
 	case 1:
 		;
-		uint8_t *unpacked = (uint8_t *) FuShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) malloc(unpackedLength * sizeof(uint8_t));
 		G9bStream s;
 		G9bStream_Construct(&s);
 		s.base.base.content = content;
@@ -10557,7 +10513,7 @@ static bool RECOIL_DecodeG9b(RECOIL *self, uint8_t const *content, int contentLe
 		bool ok = G9bStream_Unpack(&s, unpacked, headerLength, unpackedLength);
 		if (ok)
 			RECOIL_DecodeG9bUnpacked(self, unpacked, depth, headerLength);
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return ok;
 	default:
 		return false;
@@ -12092,10 +12048,7 @@ static bool RECOIL_DecodeQ4(RECOIL *self, uint8_t const *content, int contentLen
 			if (nextChunkOffset < 0 || !Q4Stream_UnpackQ4(&rle))
 				return false;
 		}
-		int b = RleStream_ReadRle(&rle.base);
-		if (b < 0)
-			b = 0;
-		self->pixels[i] = self->contentPalette[b];
+		self->pixels[i] = self->contentPalette[FuInt_Max(RleStream_ReadRle(&rle.base), 0)];
 	}
 	return true;
 }
@@ -12231,7 +12184,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 	int colorOffset = headerOffset + RECOIL_Get32LittleEndian(content, headerOffset + 24);
 	if (haveDelta.base.contentOffset < 0 || deltaOffset < 0 || colorOffset < 0)
 		return false;
-	uint8_t *deltas = (uint8_t *) FuShared_Make((bytesPerLine + 3) >> 2, sizeof(uint8_t), NULL, NULL);
+	uint8_t *deltas = (uint8_t *) malloc(((bytesPerLine + 3) >> 2) * sizeof(uint8_t));
 	memset(deltas, 0, ((bytesPerLine + 3) >> 2) * sizeof(uint8_t));
 	for (int y = 0; y < height; y++) {
 		int delta = 0;
@@ -12244,14 +12197,14 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 						break;
 					case 1:
 						if (deltaOffset >= contentLength) {
-							FuShared_Release(deltas);
+							free(deltas);
 							return false;
 						}
 						delta ^= content[deltaOffset++];
 						deltas[x >> 2] = (uint8_t) delta;
 						break;
 					default:
-						FuShared_Release(deltas);
+						free(deltas);
 						return false;
 					}
 					delta >>= 4;
@@ -12261,7 +12214,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 			}
 			if (delta == 0) {
 				if (colorOffset >= contentLength) {
-					FuShared_Release(deltas);
+					free(deltas);
 					return false;
 				}
 				unpacked[y * bytesPerLine + x] = content[colorOffset++];
@@ -12272,7 +12225,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 				int sourceX = x - DELTA_X[delta];
 				int sourceY = y - DELTA_Y[delta];
 				if (sourceX < 0 || sourceY < 0) {
-					FuShared_Release(deltas);
+					free(deltas);
 					return false;
 				}
 				unpacked[y * bytesPerLine + x] = unpacked[sourceY * bytesPerLine + sourceX];
@@ -12283,7 +12236,7 @@ static bool RECOIL_UnpackMag(uint8_t const *content, int headerOffset, int conte
 		if (((bytesPerLine + 1) & 2) != 0 && (deltas[bytesPerLine >> 2] & 15) == 0)
 			colorOffset += 2;
 	}
-	FuShared_Release(deltas);
+	free(deltas);
 	return true;
 }
 
@@ -12384,9 +12337,9 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 	int height = content[headerOffset + 10] - content[headerOffset + 6] + ((content[headerOffset + 11] - content[headerOffset + 7]) << 8) + 1;
 	if (!RECOIL_SetScaledSize(self, width, height, resolution))
 		return false;
-	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) malloc(bytesPerLine * height * sizeof(uint8_t));
 	if (!RECOIL_UnpackMag(content, headerOffset, contentLength, bytesPerLine, height, unpacked)) {
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return false;
 	}
 	RECOIL_SetPiPalette(self, content, headerOffset + 32, colors, 1);
@@ -12410,7 +12363,7 @@ static bool RECOIL_DecodeMag(RECOIL *self, uint8_t const *content, int contentLe
 			RECOIL_DecodeBytes(self, unpacked, 0);
 		break;
 	}
-	FuShared_Release(unpacked);
+	free(unpacked);
 	return true;
 }
 
@@ -12535,6 +12488,34 @@ static bool RECOIL_DecodePic0(RECOIL *self, const char *filename, uint8_t const 
 				break;
 			}
 			self->pixels[y * 176 + x] = RECOIL_VIC20_PALETTE[c];
+		}
+	}
+	return true;
+}
+
+static bool RECOIL_DecodeVic20Mg(RECOIL *self, uint8_t const *content, int contentLength)
+{
+	if (contentLength != 4097 || content[0] != 241 || content[1] != 16 || content[2] != 12 || content[3] != 18 || content[4] != 216 || content[5] != 7 || content[6] != 158 || content[7] != 32 || content[8] != '8' || content[9] != '5' || content[10] != '8' || content[11] != '4' || content[12] != 0 || content[13] != 0 || content[14] != 0)
+		return false;
+	RECOIL_SetSize(self, 160, 192, RECOILResolution_VIC202X1, 1);
+	uint8_t palette[4];
+	palette[0] = (uint8_t) (content[16] >> 4);
+	palette[1] = (uint8_t) (content[16] & 7);
+	palette[3] = (uint8_t) (content[15] >> 4);
+	int invert = ~(content[16] >> 3) & 1;
+	for (int y = 0; y < 192; y++) {
+		for (int x = 0; x < 160; x++) {
+			palette[2] = (uint8_t) (content[3857 + (y >> 4) * 10 + (x >> 4)] >> (x >> 1 & 4) & 15);
+			int b = content[17 + (x >> 3) * 192 + y];
+			if (palette[2] >= 8) {
+				palette[2] &= 7;
+				b = b >> (~x & 6) & 3;
+			}
+			else {
+				self->resolution = RECOILResolution_VIC201X1;
+				b = ((b >> (~x & 7) & 1) ^ invert) << 1;
+			}
+			self->pixels[y * 160 + x] = RECOIL_VIC20_PALETTE[palette[b]];
 		}
 	}
 	return true;
@@ -14942,9 +14923,7 @@ static bool RECOIL_DecodeGdosFnt(RECOIL *self, uint8_t const *content, int conte
 	int characterEndOffset = characterOffset + ((lastCharacter - firstCharacter + 2) << 1);
 	if (characterEndOffset > bitmapOffset)
 		return false;
-	int width = height << 4;
-	if (width > 3840)
-		width = 3840;
+	int width = FuInt_Min(height << 4, 3840);
 	stream.base.contentOffset = characterOffset;
 	stream.base.contentLength = characterEndOffset;
 	stream.bitmapWidth = bytesPerLine << 3;
@@ -15682,13 +15661,13 @@ static bool RECOIL_DecodeGrx(RECOIL *self, uint8_t const *content, int contentLe
 		int packed2Offset = 1586 + packed1Length;
 		if (contentLength != packed2Offset + RECOIL_Get32BigEndian(content, 1582))
 			return false;
-		uint8_t *unpacked = (uint8_t *) FuShared_Make(bitmapLength, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) malloc(bitmapLength * sizeof(uint8_t));
 		if (!RECOIL_UnpackGrx(content, 1586, packed2Offset, unpacked, 0, bitmapLength >> 1) || !RECOIL_UnpackGrx(content, packed2Offset, contentLength, unpacked, bitmapLength >> 1, bitmapLength)) {
-			FuShared_Release(unpacked);
+			free(unpacked);
 			return false;
 		}
 		RECOIL_DecodeBitplanes(self, unpacked, 0, contentStride, bitplanes, 0, width, height);
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return true;
 	default:
 		return false;
@@ -15809,7 +15788,7 @@ static bool RECOIL_DecodeSttt(RECOIL *self, ImgStream *rle, int width, int bytes
 	int bitplanes = rle->base.base.base.content[5];
 	RECOIL_SetStPalette(self, rle->base.base.base.content, 22, 16, 0);
 	memset(self->contentPalette + 16, 0, 240 * sizeof(int));
-	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerBitplane, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) malloc(bytesPerBitplane * sizeof(uint8_t));
 	int doubleWidth = self->resolution == RECOILResolution_TT2X1 ? 1 : 0;
 	for (int bitplane = 0; bitplane < bitplanes; bitplane++) {
 		for (int y = 0; y < self->height;) {
@@ -15819,7 +15798,7 @@ static bool RECOIL_DecodeSttt(RECOIL *self, ImgStream *rle, int width, int bytes
 			if (lineRepeatCount > self->height - y)
 				lineRepeatCount = self->height - y;
 			if (!ImgStream_UnpackLine(rle, unpacked, bytesPerBitplane, y)) {
-				FuShared_Release(unpacked);
+				free(unpacked);
 				return false;
 			}
 			while (--lineRepeatCount >= 0) {
@@ -15839,7 +15818,7 @@ static bool RECOIL_DecodeSttt(RECOIL *self, ImgStream *rle, int width, int bytes
 			}
 		}
 	}
-	FuShared_Release(unpacked);
+	free(unpacked);
 	return true;
 }
 
@@ -15919,13 +15898,17 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 			else if (headerLength == 54 && RECOIL_IsStringAt(content, 16, "STTT") && content[20] == 0 && content[21] == 16)
 				return RECOIL_DecodeSttt(self, &rle, width, bytesPerBitplane);
 			else if (bitplanes == 8) {
-				int rgb = 16777215;
-				for (int c = 0; c < 256; c++) {
-					self->contentPalette[c] = rgb;
-					for (int mask = 8421504;; mask >>= 1) {
-						rgb ^= mask;
-						if ((rgb & mask) == 0)
-							break;
+				if (headerLength == 22 && RECOIL_IsXimg(content))
+					RECOIL_SetGrayscalePalette(self, 255);
+				else {
+					int rgb = 16777215;
+					for (int c = 0; c < 256; c++) {
+						self->contentPalette[c] = rgb;
+						for (int mask = 8421504;; mask >>= 1) {
+							rgb ^= mask;
+							if ((rgb & mask) == 0)
+								break;
+						}
 					}
 				}
 			}
@@ -15948,13 +15931,11 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 	if (chunky && bitplanes == 24)
 		bytesPerBitplane = (bytesPerBitplane + 1) & ~1;
 	int bytesPerLine = bitplanes * bytesPerBitplane;
-	uint8_t *unpacked = (uint8_t *) FuShared_Make(bytesPerLine, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) malloc(bytesPerLine * sizeof(uint8_t));
 	for (int y = 0; y < height;) {
-		int lineRepeatCount = ImgStream_GetLineRepeatCount(&rle);
-		if (lineRepeatCount > height - y)
-			lineRepeatCount = height - y;
+		int lineRepeatCount = FuInt_Min(ImgStream_GetLineRepeatCount(&rle), height - y);
 		if (!ImgStream_UnpackLine(&rle, unpacked, bytesPerLine, y)) {
-			FuShared_Release(unpacked);
+			free(unpacked);
 			return false;
 		}
 		for (int x = 0; x < width; x++) {
@@ -15997,7 +15978,7 @@ static bool RECOIL_DecodeStImg(RECOIL *self, uint8_t const *content, int content
 		}
 		y += lineRepeatCount;
 	}
-	FuShared_Release(unpacked);
+	free(unpacked);
 	return true;
 }
 
@@ -16263,19 +16244,19 @@ static bool RECOIL_DecodeSpxV2(RECOIL *self, uint8_t const *content, int content
 	if (bitmapLength != 8 + packedLength || packedEnd > contentLength || packedEnd < 0)
 		return false;
 	stream->base.contentOffset = packedEnd;
-	uint8_t *unpacked = (uint8_t *) FuShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) malloc(unpackedLength * sizeof(uint8_t));
 	if (!SpxStream_UnpackV2(stream, unpacked, unpackedLength)) {
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return false;
 	}
 	if (paletteOffset == 98336 && unpackedLength == 155552) {
 		bool returnValue = RECOIL_DecodeSpuVariable(self, unpacked, 597, 160, 98240, false);
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return returnValue;
 	}
 	int height = (unpackedLength - paletteOffset) / 96;
 	bool returnValue = paletteOffset >= 320 + height * 160 && RECOIL_DecodeSpuVariable(self, unpacked, height, 320, paletteOffset, false);
-	FuShared_Release(unpacked);
+	free(unpacked);
 	return returnValue;
 }
 
@@ -16321,19 +16302,19 @@ static bool RECOIL_DecodeSpx(RECOIL *self, uint8_t const *content, int contentLe
 	if (bitmapLength <= 0 || bitmapLength % 160 != 0)
 		return false;
 	int height = bitmapLength / 160;
-	uint8_t *unpacked = (uint8_t *) FuShared_Make(height << 8, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) malloc((height << 8) * sizeof(uint8_t));
 	int paletteLength = RECOIL_Get32BigEndian(content, stream.base.contentStart - 4);
 	if (content[4] == 0)
 		memcpy(unpacked, content + (stream.base.contentStart + 160), bitmapLength);
 	else if (content[3] == 1) {
 		if (!Ice21Stream_Unpack(&stream.base, unpacked, 0, bitmapLength)) {
-			FuShared_Release(unpacked);
+			free(unpacked);
 			return false;
 		}
 	}
 	if (content[5] == 0) {
 		if (paletteLength != height * 96) {
-			FuShared_Release(unpacked);
+			free(unpacked);
 			return false;
 		}
 		memcpy(unpacked + bitmapLength, content + paletteOffset, paletteLength);
@@ -16342,12 +16323,12 @@ static bool RECOIL_DecodeSpx(RECOIL *self, uint8_t const *content, int contentLe
 		stream.base.contentStart = paletteOffset;
 		stream.base.contentOffset = paletteOffset + paletteLength;
 		if (stream.base.contentOffset > contentLength || Ice21Stream_GetUnpackedLength(&stream.base) != height * 96 || !Ice21Stream_Unpack(&stream.base, unpacked, bitmapLength, height << 8)) {
-			FuShared_Release(unpacked);
+			free(unpacked);
 			return false;
 		}
 	}
 	bool returnValue = RECOIL_DecodeSpuVariable(self, unpacked, height, 0, height * 160, false);
-	FuShared_Release(unpacked);
+	free(unpacked);
 	return returnValue;
 }
 
@@ -16966,9 +16947,9 @@ static bool RECOIL_DecodeDel(RECOIL *self, uint8_t const *content, int contentLe
 
 static bool RECOIL_DecodeDph(RECOIL *self, uint8_t const *content, int contentLength)
 {
-	uint8_t *unpacked = (uint8_t *) FuShared_Make(320000, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) malloc(320000 * sizeof(uint8_t));
 	if (!CaStream_UnpackDel(content, contentLength, unpacked, 10)) {
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return false;
 	}
 	RECOIL_SetFalconPalette(self, unpacked, 0, 256);
@@ -16977,7 +16958,7 @@ static bool RECOIL_DecodeDph(RECOIL *self, uint8_t const *content, int contentLe
 	RECOIL_DecodeBitplanes(self, unpacked, 77824, 320, 8, 320, 320, 240);
 	RECOIL_DecodeBitplanes(self, unpacked, 154624, 320, 8, 153600, 320, 240);
 	RECOIL_DecodeBitplanes(self, unpacked, 231424, 320, 8, 153920, 320, 240);
-	FuShared_Release(unpacked);
+	free(unpacked);
 	return true;
 }
 
@@ -17297,14 +17278,14 @@ static bool RECOIL_DecodeFalconPnt(RECOIL *self, uint8_t const *content, int con
 		return bitmapLength == unpackedLength && RECOIL_DecodePntUnpacked(self, content, content, bitmapOffset, width, height);
 	case 1:
 		;
-		uint8_t *unpacked = (uint8_t *) FuShared_Make(unpackedLength, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) malloc(unpackedLength * sizeof(uint8_t));
 		PackBitsStream rle;
 		PackBitsStream_Construct(&rle);
 		rle.base.base.base.content = content;
 		rle.base.base.base.contentOffset = bitmapOffset;
 		rle.base.base.base.contentLength = contentLength;
 		bool returnValue = PackBitsStream_UnpackBitplaneLines(&rle, unpacked, width, height, bitplanes, true, false) && RECOIL_DecodePntUnpacked(self, content, unpacked, 0, width, height);
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return returnValue;
 	default:
 		return false;
@@ -17533,7 +17514,7 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 	int pointsOffset = 110 + RECOIL_Get32BigEndian(content, 130);
 	if (pointsOffset < 0)
 		return false;
-	uint8_t *unpacked = (uint8_t *) FuShared_Make(bitplanes * width * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *unpacked = (uint8_t *) malloc(bitplanes * width * height * sizeof(uint8_t));
 	int picOffset = 135;
 	int pic = content[134];
 	int rleBits = content[rleOffset++] << 8 | 128;
@@ -17547,14 +17528,14 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 						pointsBits <<= 1;
 						if ((pointsBits & 255) == 0) {
 							if (pointsOffset >= contentLength) {
-								FuShared_Release(unpacked);
+								free(unpacked);
 								return false;
 							}
 							pointsBits = content[pointsOffset++] << 1 | 1;
 						}
 						if ((pointsBits >> 8 & 1) != 0) {
 							if (rleOffset >= contentLength) {
-								FuShared_Release(unpacked);
+								free(unpacked);
 								return false;
 							}
 							rleBits = content[rleOffset++] << 1 | 1;
@@ -17564,7 +17545,7 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 					}
 					if ((rleBits >> 8 & 1) != 0) {
 						if (picOffset >= contentLength) {
-							FuShared_Release(unpacked);
+							free(unpacked);
 							return false;
 						}
 						pic = content[picOffset++];
@@ -17576,7 +17557,7 @@ static bool RECOIL_DecodeAbk(RECOIL *self, uint8_t const *content, int contentLe
 	}
 	RECOIL_SetOcsPalette(self, content, 46, 32);
 	bool returnValue = RECOIL_DecodeAmigaPlanar(self, unpacked, 0, width << 3, height, RECOILResolution_AMIGA1X1, bitplanes, self->contentPalette);
-	FuShared_Release(unpacked);
+	free(unpacked);
 	return returnValue;
 }
 
@@ -18225,20 +18206,21 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 			int bytesPerLine = ((width + 15) >> 4 << 1) * bitplanes;
 			uint8_t *unpacked = NULL;
 			if (compression == 2) {
-				FuShared_Assign((void **) &unpacked, (uint8_t *) FuShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
+				free(unpacked);
+				unpacked = (uint8_t *) malloc(bytesPerLine * height * sizeof(uint8_t));
 				VdatStream rle;
 				VdatStream_Construct(&rle);
 				rle.base.base.base.base.base.content = content;
 				rle.base.base.base.base.base.contentOffset = contentOffset + 8;
 				for (int bitplane = 0; bitplane < bitplanes; bitplane++) {
 					if (rle.base.base.base.base.base.contentOffset + 14 > chunkEndOffset || !RECOIL_IsStringAt(content, rle.base.base.base.base.base.contentOffset, "VDAT")) {
-						FuShared_Release(unpacked);
+						free(unpacked);
 						PchgPalette_Destruct(&pchg);
 						return false;
 					}
 					int nextContentOffset = rle.base.base.base.base.base.contentOffset + 8 + RECOIL_Get32BigEndian(content, rle.base.base.base.base.base.contentOffset + 4);
 					if (nextContentOffset > chunkEndOffset) {
-						FuShared_Release(unpacked);
+						free(unpacked);
 						PchgPalette_Destruct(&pchg);
 						return false;
 					}
@@ -18250,7 +18232,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 						for (int y = 0; y < height; y++) {
 							int b = RleStream_ReadRle(&rle.base.base.base);
 							if (b < 0) {
-								FuShared_Release(unpacked);
+								free(unpacked);
 								PchgPalette_Destruct(&pchg);
 								return false;
 							}
@@ -18271,7 +18253,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 				rle.base.base.base.contentLength = chunkEndOffset;
 				if (type == IffType_PBM) {
 					if (colors == 0 || !RECOIL_SetScaledSize(self, width, height, resolution)) {
-						FuShared_Release(unpacked);
+						free(unpacked);
 						PchgPalette_Destruct(&pchg);
 						return false;
 					}
@@ -18279,25 +18261,26 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 						for (int x = 0; x < width; x++) {
 							int b = compression == 0 ? Stream_ReadByte(&rle.base.base.base) : RleStream_ReadRle(&rle.base);
 							if (b < 0) {
-								FuShared_Release(unpacked);
+								free(unpacked);
 								PchgPalette_Destruct(&pchg);
 								return false;
 							}
 							RECOIL_SetScaledPixel(self, x, y, self->contentPalette[b]);
 						}
 						if ((width & 1) != 0 && (compression == 0 ? Stream_ReadByte(&rle.base.base.base) : RleStream_ReadRle(&rle.base)) < 0) {
-							FuShared_Release(unpacked);
+							free(unpacked);
 							PchgPalette_Destruct(&pchg);
 							return false;
 						}
 					}
-					FuShared_Release(unpacked);
+					free(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return true;
 				}
-				FuShared_Assign((void **) &unpacked, (uint8_t *) FuShared_Make(bytesPerLine * height, sizeof(uint8_t), NULL, NULL));
+				free(unpacked);
+				unpacked = (uint8_t *) malloc(bytesPerLine * height * sizeof(uint8_t));
 				if (!PackBitsStream_UnpackBitplaneLines(&rle, unpacked, width, height, bitplanes, compression == 1, hasMask)) {
-					FuShared_Release(unpacked);
+					free(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return false;
 				}
@@ -18306,19 +18289,19 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 				int nextChunkOffset = (chunkEndOffset + 1) & ~1;
 				if (RECOIL_IsStringAt(content, nextChunkOffset, "RAST")) {
 					bool returnValue = RECOIL_DecodeRast(self, content, nextChunkOffset, contentLength, unpacked, width, height, bitplanes);
-					FuShared_Release(unpacked);
+					free(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return returnValue;
 				}
 				if (RECOIL_IsStringAt(content, chunkEndOffset, "RAST")) {
 					bool returnValue = RECOIL_DecodeRast(self, content, chunkEndOffset, contentLength, unpacked, width, height, bitplanes);
-					FuShared_Release(unpacked);
+					free(unpacked);
 					PchgPalette_Destruct(&pchg);
 					return returnValue;
 				}
 			}
 			bool returnValue = RECOIL_DecodeIffUnpacked(self, unpacked, width, height, resolution, bitplanes, colors, camg, multiPalette);
-			FuShared_Release(unpacked);
+			free(unpacked);
 			PchgPalette_Destruct(&pchg);
 			return returnValue;
 		}
@@ -18328,7 +18311,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 				return false;
 			}
 			contentOffset += 8;
-			uint8_t *unpacked = (uint8_t *) FuShared_Make(chunkLength, sizeof(uint8_t), NULL, NULL);
+			uint8_t *unpacked = (uint8_t *) malloc(chunkLength * sizeof(uint8_t));
 			for (int bitplane = 0; bitplane < bitplanes; bitplane++) {
 				for (int unpackedOffset = bitplane << 1; unpackedOffset < chunkLength; unpackedOffset += bitplanes << 1) {
 					unpacked[unpackedOffset] = content[contentOffset++];
@@ -18336,7 +18319,7 @@ static bool RECOIL_DecodeIff(RECOIL *self, uint8_t const *content, int contentLe
 				}
 			}
 			bool returnValue = RECOIL_DecodeIffUnpacked(self, unpacked, width, height, resolution, bitplanes, colors, camg, multiPalette);
-			FuShared_Release(unpacked);
+			free(unpacked);
 			PchgPalette_Destruct(&pchg);
 			return returnValue;
 		}
@@ -18914,12 +18897,12 @@ static bool RECOIL_DecodeGr9x4(RECOIL *self, uint8_t const *content, int content
 {
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_XE4X4, 1))
 		return false;
-	uint8_t *frame = (uint8_t *) FuShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) malloc(width * height * sizeof(uint8_t));
 	self->gtiaColors[8] = 0;
 	for (int y = 0; y < 4; y++)
 		RECOIL_DecodeAtari8Gr9(self, content, contentOffset, width >> 3, frame, y * width, width << 2, width, height >> 2);
 	RECOIL_ApplyAtari8Palette(self, frame);
-	FuShared_Release(frame);
+	free(frame);
 	return true;
 }
 
@@ -19582,13 +19565,13 @@ static bool RECOIL_DecodeMcppVariable(RECOIL *self, uint8_t const *content, int 
 {
 	if (!RECOIL_SetSize(self, width, height, RECOILResolution_XE2X2, 1))
 		return false;
-	uint8_t *frame = (uint8_t *) FuShared_Make(width * height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) malloc(width * height * sizeof(uint8_t));
 	RECOIL_SetPF012Bak(self, content, colorsOffset);
 	RECOIL_DecodeAtari8Gr15(self, content, bitmapOffset, width >> 3, frame, 0, width << 1, height >> 1);
 	RECOIL_SetPF012Bak(self, content, colorsOffset + 4);
 	RECOIL_DecodeAtari8Gr15(self, content, bitmapOffset + (width * height >> 4), width >> 3, frame, width, width << 1, height >> 1);
 	RECOIL_ApplyAtari8Palette(self, frame);
-	FuShared_Release(frame);
+	free(frame);
 	return true;
 }
 
@@ -20106,9 +20089,7 @@ static bool RECOIL_UnpackRip(const RECOIL *self, uint8_t const *content, int con
 			int count = FanoTree_ReadCode(&lengthTree, &bitStream);
 			if (count < 0)
 				return false;
-			count += 2;
-			if (count > unpackedLength - unpackedOffset)
-				count = unpackedLength - unpackedOffset;
+			count = FuInt_Min(count + 2, unpackedLength - unpackedOffset);
 			if (!RECOIL_CopyPrevious(unpacked, unpackedOffset, distance, count))
 				return false;
 			unpackedOffset += count;
@@ -20918,13 +20899,13 @@ static bool RECOIL_DecodeEnvisionCommon(RECOIL *self, uint8_t const *content, in
 	}
 	if (!RECOIL_SetSize(self, columns * charWidth, rows * charHeight, resolution, 1))
 		return false;
-	uint8_t *frame = (uint8_t *) FuShared_Make(self->width * self->height, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) malloc(self->width * self->height * sizeof(uint8_t));
 	for (int row = 0; row < rows; row++) {
 		int fontOffset;
 		if (fontId2Offset != NULL) {
 			fontOffset = fontId2Offset[content[8 + columns * rows + 256 + row]];
 			if (fontOffset == 0) {
-				FuShared_Release(frame);
+				free(frame);
 				return false;
 			}
 		}
@@ -20948,7 +20929,7 @@ static bool RECOIL_DecodeEnvisionCommon(RECOIL *self, uint8_t const *content, in
 		charactersOffset += columns;
 	}
 	RECOIL_ApplyAtari8Palette(self, frame);
-	FuShared_Release(frame);
+	free(frame);
 	return true;
 }
 
@@ -21798,12 +21779,8 @@ static void RECOIL_DrawSpcChar(uint8_t *pixels, int x1, int y1, int ch)
 
 static void RECOIL_DrawSpcLine(uint8_t *pixels, int x1, int y1, int x2, int y2, int color)
 {
-	int dx = x2 - x1;
-	int dy = y2 - y1;
-	if (dx < 0)
-		dx = -dx;
-	if (dy < 0)
-		dy = -dy;
+	int dx = abs(x2 - x1);
+	int dy = abs(y2 - y1);
 	if (dx >= dy) {
 		int e = dx;
 		if (x2 < x1) {
@@ -22480,14 +22457,14 @@ static bool RECOIL_DecodeG2fFrame(RECOIL *self, uint8_t const *content, int cont
 	if (contentLength < 11)
 		return false;
 	if (RECOIL_IsStringAt(content, 0, "G2FZLIB")) {
-		uint8_t *unpacked = (uint8_t *) FuShared_Make(327078, sizeof(uint8_t), NULL, NULL);
+		uint8_t *unpacked = (uint8_t *) malloc(327078 * sizeof(uint8_t));
 		InflateStream stream;
 		stream.base.content = content;
 		stream.base.contentOffset = 7;
 		stream.base.contentLength = contentLength;
 		contentLength = InflateStream_Uncompress(&stream, unpacked, 327078);
 		bool returnValue = RECOIL_DecodeG2fUnpacked(self, unpacked, contentLength, frame, yOffset);
-		FuShared_Release(unpacked);
+		free(unpacked);
 		return returnValue;
 	}
 	return RECOIL_DecodeG2fUnpacked(self, content, contentLength, frame, yOffset);
@@ -22530,8 +22507,8 @@ static bool RECOIL_DecodeVsc(RECOIL *self, const char *vscFilename, uint8_t cons
 			break;
 		}
 	}
-	uint8_t *frame = (uint8_t *) FuShared_Make(336 * height, sizeof(uint8_t), NULL, NULL);
-	uint8_t *g2f = (uint8_t *) FuShared_Make(327078, sizeof(uint8_t), NULL, NULL);
+	uint8_t *frame = (uint8_t *) malloc(336 * height * sizeof(uint8_t));
+	uint8_t *g2f = (uint8_t *) malloc(327078 * sizeof(uint8_t));
 	s.contentOffset = 0;
 	self->resolution = RECOILResolution_XE4X1;
 	for (height = 0;; height += 240) {
@@ -22542,15 +22519,15 @@ static bool RECOIL_DecodeVsc(RECOIL *self, const char *vscFilename, uint8_t cons
 		contentLength = RECOIL_ReadSiblingFile(self, vscFilename, filename, g2f, 327078);
 		if (!RECOIL_DecodeG2fFrame(self, g2f, contentLength, frame, height)) {
 			free(filename);
-			FuShared_Release(g2f);
-			FuShared_Release(frame);
+			free(g2f);
+			free(frame);
 			return false;
 		}
 		free(filename);
 	}
 	bool returnValue = RECOIL_SetSize(self, 336, height, self->resolution, 1) && RECOIL_ApplyAtari8Palette(self, frame);
-	FuShared_Release(g2f);
-	FuShared_Release(frame);
+	free(g2f);
+	free(frame);
 	return returnValue;
 }
 
@@ -22789,7 +22766,17 @@ static bool RECOIL_DecodePi9(RECOIL *self, uint8_t const *content, int contentLe
 	}
 }
 
-static bool RECOIL_DecodePic(RECOIL *self, uint8_t const *content, int contentLength)
+static bool RECOIL_IsPaint256(const char *filename)
+{
+	ptrdiff_t i = (ptrdiff_t) strlen(filename) - 10;
+	if (i < 0)
+		return false;
+	if (i > 0 && filename[i - 1] != '/' && filename[i - 1] != '\\')
+		return false;
+	return (filename[i] | 32) == 'p' && (filename[i + 1] | 32) == 'a' && (filename[i + 2] | 32) == 'i' && (filename[i + 3] | 32) == 'n' && (filename[i + 4] | 32) == 't' && filename[i + 5] != '/' && filename[i + 5] != '\\';
+}
+
+static bool RECOIL_DecodePic(RECOIL *self, const char *filename, uint8_t const *content, int contentLength)
 {
 	if (RECOIL_DecodePsion3Pic(self, content, contentLength) || RECOIL_DecodeX68KPic(self, content, contentLength) || RECOIL_DecodeAtari8Koala(self, content, 0, contentLength))
 		return true;
@@ -22799,7 +22786,7 @@ static bool RECOIL_DecodePic(RECOIL *self, uint8_t const *content, int contentLe
 	case 4325:
 		return RECOIL_DecodeGad(self, content, contentLength);
 	case 7680:
-		return RECOIL_DecodeGr8(self, content, contentLength);
+		return RECOIL_IsPaint256(filename) ? RECOIL_Decode256(self, content, contentLength) : RECOIL_DecodeGr8(self, content, contentLength);
 	case 7681:
 	case 7682:
 	case 7683:
@@ -23351,6 +23338,7 @@ bool RECOIL_IsOurFile(const char *filename)
 	case 544236397:
 	case 1886413677:
 	case 544433005:
+	case 538994541:
 	case 540108653:
 	case 540174189:
 	case 540305261:
@@ -24147,6 +24135,8 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 		return RECOIL_DecodeMcpp(self, content, contentLength);
 	case 544433005:
 		return RECOIL_DecodeMcs(self, content, contentLength);
+	case 538994541:
+		return RECOIL_DecodeVic20Mg(self, content, contentLength);
 	case 540108653:
 	case 540174189:
 	case 540305261:
@@ -24277,7 +24267,7 @@ bool RECOIL_Decode(RECOIL *self, const char *filename, uint8_t const *content, i
 	case 540633456:
 		return RECOIL_DecodePi9(self, content, contentLength);
 	case 543385968:
-		return RECOIL_DecodePic(self, content, contentLength);
+		return RECOIL_DecodePic(self, filename, content, contentLength);
 	case 811821424:
 		return RECOIL_DecodePic0(self, filename, content, contentLength);
 	case 544762224:
@@ -24905,8 +24895,10 @@ int RECOIL_GetFrames(const RECOIL *self)
 
 static void RECOIL_CalculatePalette(RECOIL *self)
 {
-	if (self->colorInUse == NULL)
-		FuShared_Assign((void **) &self->colorInUse, (uint8_t *) FuShared_Make(2097152, sizeof(uint8_t), NULL, NULL));
+	if (self->colorInUse == NULL) {
+		free(self->colorInUse);
+		self->colorInUse = (uint8_t *) malloc(2097152 * sizeof(uint8_t));
+	}
 	memset(self->colorInUse, 0, 2097152 * sizeof(uint8_t));
 	self->colors = 0;
 	memset(self->palette, 0, sizeof(self->palette));
@@ -24958,8 +24950,8 @@ int const *RECOIL_ToPalette(RECOIL *self)
 	int pixelsLength = self->width * self->height;
 	if (self->indexesLength < pixelsLength) {
 		self->indexesLength = pixelsLength;
-		FuShared_Assign((void **) &self->indexes, NULL);
-		FuShared_Assign((void **) &self->indexes, (uint8_t *) FuShared_Make(pixelsLength, sizeof(uint8_t), NULL, NULL));
+		free(self->indexes);
+		self->indexes = (uint8_t *) malloc(pixelsLength * sizeof(uint8_t));
 	}
 	for (int i = 0; i < pixelsLength; i++)
 		self->indexes[i] = (uint8_t) RECOIL_FindInSortedPalette(self, self->pixels[i]);
