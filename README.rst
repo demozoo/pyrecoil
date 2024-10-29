@@ -61,4 +61,4 @@ The RECOIL library itself is implemented in the `Fusion Programming Language <ht
 Author
 ~~~~~~
 
-Matt Westcott - matt@west.co.tt, http://twitter.com/gasmanic
+Matt Westcott - matt@west.co.tt, https://icosahedron.website/@gasman
