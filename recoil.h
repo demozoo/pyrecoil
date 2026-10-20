@@ -13,38 +13,38 @@ void RECOIL_Delete(RECOIL *self);
 /**
  * RECOIL version - major part.
  */
-#define RECOIL_VERSION_MAJOR 6
+#define RECOIL_VERSION_MAJOR 7
 
 /**
  * RECOIL version - minor part.
  */
-#define RECOIL_VERSION_MINOR 4
+#define RECOIL_VERSION_MINOR 0
 
 /**
  * RECOIL version - micro part.
  */
-#define RECOIL_VERSION_MICRO 5
+#define RECOIL_VERSION_MICRO 0
 
 /**
  * RECOIL version as a string.
  */
-#define RECOIL_VERSION "6.4.5"
+#define RECOIL_VERSION "7.0.0"
 
 /**
  * Years RECOIL was created in.
  */
-#define RECOIL_YEARS "2009-2024"
+#define RECOIL_YEARS "2009-2026"
 
 /**
  * Short credits for RECOIL.
  */
-#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2024 Piotr Fusik\n"
+#define RECOIL_CREDITS "Retro Computer Image Library (C) 2009-2026 Piotr Fusik\n"
 
 /**
  * Short license notice.
  * Display after the credits.
  */
-#define RECOIL_COPYRIGHT "This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version."
+#define RECOIL_LICENSE "This program is licensed under the MIT License."
 
 /**
  * Maximum length of a supported platform palette file.
